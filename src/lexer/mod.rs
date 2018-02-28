@@ -1,42 +1,10 @@
-use std::collections::HashMap;
+mod info;
 
-macro_rules! map(
-  { $($key:expr => $value:expr),+ } => {
-    {
-      let mut m = ::std::collections::HashMap::new();
-        $(
-          m.insert($key, $value);
-        )+
-      m
-    }
-  };
-);
-
-#[derive(Copy, Clone, Debug)]
-pub enum Token {
-  // operators
-  Equals,
-  Plus,
-  Minus,
-  Asterix,
-  Slash,
-  SemiColon,
-  Colon,
-  Dot,
-
-  ParOpen,
-  ParClose,
-
-  LtOrEq,
-  GtOrEq,
-
-  LineBreak,
-
-  // keywords
-  Print,
-}
+pub use self::info::Token;
+pub use self::info::LexErr;
 
 use self::Token::*;
+use std::collections::HashMap;
 
 /// Find string literals
 #[derive(Debug)]
@@ -51,18 +19,11 @@ pub enum Literal {
   Num(f64),
 }
 
-/// 
 #[derive(Debug)]
 pub enum Lexed<'a> {
   Literal(Literal, i32),
   Operator(Token, i32),
   Identifier(&'a str, i32),
-}
-
-#[derive(Debug)]
-pub enum LexErr<'a> {
-  MismatchedQuotes(i32),
-  UnknownToken(i32, &'a str)
 }
 
 fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
@@ -217,26 +178,7 @@ fn trim<'a>(val: &'a str) -> (&'a str, i32, i32) {
 
 fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
-  let tokens: HashMap<&str, Token> = map!{
-    "=" => Equals,
-    "+" => Plus,
-    "-" => Minus,
-    "*" => Asterix,
-    "/" => Slash,
-    ";" => SemiColon,
-    ":" => Colon,
-    "." => Dot,
-
-    "(" => ParOpen,
-    ")" => ParClose,
-    
-    ">=" => GtOrEq,
-    "<=" => LtOrEq,
-
-    "\n" => LineBreak,
-
-    "print" => Print
-  };
+  let tokens: HashMap<&str, Token> = info::get_tokens();
 
   let tokens: Vec<(&&str, &Token)> = tokens.iter().collect();
   // tokens.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
@@ -259,7 +201,7 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
           let curr = &val[offset..len - r_offset as usize];
           let trimmed = trim(curr);
           let apos = pos + trimmed.1 + offset as i32;
-          println!("curr: {}, trim: {}, off: {}, r_off: {}, lex: {}", curr, trimmed.0, offset, r_offset, lexed.len());
+          // println!("curr: {}, trim: {}, off: {}, r_off: {}, lex: {}", curr, trimmed.0, offset, r_offset, lexed.len());
 
           if curr.len() <= 0 {
             break;
@@ -285,8 +227,7 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
       },
       PreLexed::String(val, pos) => {
         lexed.push(Lexed::Literal(Literal::String(String::from(val)), pos));
-      },
-      _ => { }
+      }
     };
   }
 
@@ -303,11 +244,11 @@ pub fn lex<'a>(query: &'a str) -> Result<Vec<Lexed<'a>>, LexErr> {
           println!("{}", query);
 
           let mut offset = String::from("");
-          for i in 0..pos { offset.push('-') }
+          for _i in 0..pos { offset.push('-') }
           println!("{}^", offset);
 
           offset.clear();
-          for i in 0..pos { offset.push(' ') }
+          for _i in 0..pos { offset.push(' ') }
           println!("{} mismatched quote", offset);
         },
         _ => {}
@@ -325,11 +266,11 @@ pub fn lex<'a>(query: &'a str) -> Result<Vec<Lexed<'a>>, LexErr> {
           println!("{}", query);
 
           let mut offset = String::from("");
-          for i in 0..pos { offset.push('-') }
+          for _i in 0..pos { offset.push('-') }
           println!("{}^", offset);
 
           offset.clear();
-          for i in 0..pos { offset.push(' ') }
+          for _i in 0..pos { offset.push(' ') }
           println!("{} unknown token \"{}\"", offset, token);
         },
         _ => {}
