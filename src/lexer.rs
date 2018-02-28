@@ -129,7 +129,7 @@ fn is_identifier(val: &str) -> bool {
 
   for i in val.chars() {
     match i {
-      'a' ... 'z' | 'A' ... 'Z' | '_' | '1' ... '9' => { },
+      'a' ... 'z' | 'A' ... 'Z' | '_' | '0' ... '9' => { },
       _ => { return false; }
     }
   }
@@ -153,7 +153,7 @@ fn is_number(val: &str) -> bool {
 
   for i in val.chars() {
     match i {
-      '1' ... '9' => {
+      '0' ... '9' => {
         prev_dot = false;
         prev_e = false;
       },
