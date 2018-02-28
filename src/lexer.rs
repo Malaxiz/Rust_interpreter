@@ -30,6 +30,8 @@ pub enum Token {
   LtOrEq,
   GtOrEq,
 
+  LineBreak,
+
   // keywords
   Print,
 }
@@ -38,7 +40,7 @@ use self::Token::*;
 
 /// Find string literals
 #[derive(Debug)]
-pub enum PreLexed<'a> {
+enum PreLexed<'a> {
   String(&'a str, i32),
   Rest(&'a str, i32),
 }
@@ -46,7 +48,7 @@ pub enum PreLexed<'a> {
 #[derive(Debug)]
 pub enum Literal {
   String(String),
-  Int(i32),
+  Num(f64),
 }
 
 /// 
@@ -108,6 +110,15 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
   Ok(pre_lexed)
 }
 
+fn is_operator(tokens: &Vec<(&& str, &Token)>, trimmed: &str) -> Option<Token> {
+  for &i in tokens.iter() {
+    if *i.0 == trimmed {
+      return Some(i.1.clone());
+    }
+  }
+  None
+}
+
 fn is_identifier(val: &str) -> bool {
   if val.len() <= 0 { return false; }
 
@@ -129,11 +140,43 @@ fn is_identifier(val: &str) -> bool {
 fn is_number(val: &str) -> bool {
   if val.len() <= 0 { return false; }
 
+  let mut num_dots = 0;
+  let mut num_e = 0;
+
+  let mut prev_dot = false;
+  let mut prev_e = false;
+
+  match val.chars().next().unwrap() {
+    '.' | 'e' => { return false; }
+    _ => {}
+  }
+
   for i in val.chars() {
     match i {
-      '1' ... '9' => { },
+      '1' ... '9' => {
+        prev_dot = false;
+        prev_e = false;
+      },
+      '.' => {
+        if num_dots >= 1 || prev_e {
+          return false;
+        }
+        num_dots += 1;
+        prev_dot = true;
+      },
+      'e' => {
+        if num_e >= 1 || prev_dot {
+          return false;
+        }
+        num_e += 1;
+        prev_e = true;
+      }
       _ => { return false; }
     }
+  }
+
+  if prev_dot || prev_e {
+    return false;
   }
 
   true
@@ -169,8 +212,6 @@ fn trim<'a>(val: &'a str) -> (&'a str, i32, i32) {
     }
   };
 
-  // println!("{}, {}, {}, {}", val, val.len(), start, end);
-
   (&val[start as usize..end as usize], start, end)
 }
 
@@ -192,13 +233,13 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
     ">=" => GtOrEq,
     "<=" => LtOrEq,
 
+    "\n" => LineBreak,
+
     "print" => Print
   };
 
-  let mut tokens: Vec<(&&str, &Token)> = tokens.iter().collect();
-  tokens.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
-
-  let longest_token = tokens[0].0.len();
+  let tokens: Vec<(&&str, &Token)> = tokens.iter().collect();
+  // tokens.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
 
   let mut lexed: Vec<Lexed> = Vec::new();
   for i in pre_lexed {
@@ -208,11 +249,8 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
         let mut r_offset: i32 = -1;
         let len = val.len();
 
-        let mut found_op = false;
-
         while offset < len {
           r_offset += 1;
-          found_op = false;
 
           if (len - r_offset as usize) - offset <= 0 {
             break;
@@ -225,46 +263,25 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
           if curr.len() <= 0 {
             break;
-          }
-        
-          if curr.len() == 1 && curr.chars().next().unwrap() == ' ' {
+          } else if curr.len() == 1 && curr.chars().next().unwrap() == ' ' {
             break;
           }
 
-          for &i in tokens.iter() {
-            println!("tokens: {} == {}", *i.0, trimmed.0);
-            if *i.0 == trimmed.0 {
-              lexed.push(Lexed::Operator(i.1.clone(), apos));
-              r_offset = -1;
-              offset += i.0.len() + trimmed.1 as usize;
-              found_op = true;
-              break;
-            }
-          }
-          if found_op {
-            continue;
-          }
-
-          if is_identifier(trimmed.0) {
+          if let Some(op) = is_operator(&tokens, trimmed.0) {
+            lexed.push(Lexed::Operator(op, apos));
+          } else if is_identifier(trimmed.0) {
             lexed.push(Lexed::Identifier(trimmed.0, apos));
-            r_offset = -1;
-            offset += trimmed.0.len() + trimmed.1 as usize;
-            continue;
-          }
-
-          if is_number(trimmed.0) {
-            lexed.push(Lexed::Literal(Literal::Int(trimmed.0.parse::<i32>().unwrap()), apos));
-            r_offset = -1;
-            offset += trimmed.0.len() + trimmed.1 as usize;
-            continue;
-          }
-
-          // not found
-          if trimmed.0.len() <= 1 {
+          } else if is_number(trimmed.0) {
+            lexed.push(Lexed::Literal(Literal::Num(trimmed.0.parse::<f64>().unwrap()), apos));
+          } else if trimmed.0.len() <= 1 {
             return Err(LexErr::UnknownToken(apos, trimmed.0));
+          } else {
+            continue;
           }
-        }
 
+          r_offset = -1;
+          offset += trimmed.0.len() + trimmed.1 as usize;
+        }
       },
       PreLexed::String(val, pos) => {
         lexed.push(Lexed::Literal(Literal::String(String::from(val)), pos));
@@ -276,7 +293,7 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
   Ok(lexed)
 }
 
-pub fn lex<'a>(query: &str) -> Result<Vec<Lexed<'a>>, LexErr> {
+pub fn lex<'a>(query: &'a str) -> Result<Vec<Lexed<'a>>, LexErr> {
   let lexed = match pre_lex(query) {
     Ok(val) => val,
     Err(err) => {
@@ -298,7 +315,6 @@ pub fn lex<'a>(query: &str) -> Result<Vec<Lexed<'a>>, LexErr> {
       return Err(err);
     }
   };
-  // println!("{:#?}", lexed);
 
   let tokenized = match tokenize(lexed) {
     Ok(val) => val,
@@ -323,7 +339,5 @@ pub fn lex<'a>(query: &str) -> Result<Vec<Lexed<'a>>, LexErr> {
   };
   println!("{:#?}", tokenized);
 
-  // println!("{}", trim(" ="));
-
-  Ok(Vec::new())
+  Ok(tokenized)
 }

@@ -1,12 +1,17 @@
 extern crate lang;
 
-fn main() {
-  // let query = "let print = \"a st\\\"ring\"; if \"dab\".contains(\"d\") {  }";
-  // let query = " a >= \"dab\"*what;";
-  // let query = "let dab = 55* 84 + 75 / 2 >= \"dab\"";
-  let query = "this.fn();";
-  let result = lang::exec(query).unwrap();
+use std::io;
 
-  // let val = " a = ";
-  // println!("{}, {}, {}", &val[2..val.len() - 0], 2, val.len() - 0);
+fn main() {
+
+  loop {
+    let mut query = String::new();
+    io::stdin().read_line(&mut query)
+      .expect("Failed to read line");
+
+    let result = lang::exec(&query).unwrap();
+  }
+
+  // let query = "this.fn();";
+  // let result = lang::exec(query).unwrap();
 }
