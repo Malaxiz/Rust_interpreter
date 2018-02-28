@@ -12,7 +12,13 @@ macro_rules! map(
   };
 );
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug)]
+pub enum LexErr<'a> {
+  MismatchedQuotes(i32),
+  UnknownToken(i32, &'a str),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token {
   // operators
   Equals,
@@ -34,16 +40,10 @@ pub enum Token {
   LineBreak,
 
   // keywords
-  Let,
+  If,
 }
 
 use self::Token::*;
-
-#[derive(Debug)]
-pub enum LexErr<'a> {
-  MismatchedQuotes(i32),
-  UnknownToken(i32, &'a str)
-}
 
 pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
   map!{
@@ -65,6 +65,6 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
 
     "\n" => LineBreak,
 
-    "let" => Let
+    "if" => If
   }
 }

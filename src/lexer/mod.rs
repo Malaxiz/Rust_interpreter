@@ -1,12 +1,13 @@
+//! The lexer module function `lex` takes a `query: &str` and lexes it into a `Vec<Lexed>` which can then be parsed.
+
 mod info;
 
 pub use self::info::Token;
 pub use self::info::LexErr;
+pub use self::info::get_tokens;
 
-use self::Token::*;
 use std::collections::HashMap;
 
-/// Find string literals
 #[derive(Debug)]
 enum PreLexed<'a> {
   String(&'a str, i32),
@@ -234,6 +235,7 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
   Ok(lexed)
 }
 
+/// Lexes a `query: &str` into a vector of tokens: `Vec<Lexed>`.
 pub fn lex<'a>(query: &'a str) -> Result<Vec<Lexed<'a>>, LexErr> {
   let lexed = match pre_lex(query) {
     Ok(val) => val,
