@@ -9,9 +9,6 @@ fn main() {
     io::stdin().read_line(&mut query)
       .expect("Failed to read line");
 
-    let result = lang::exec(&query).unwrap();
+    let result = lang::exec(&query);
   }
-
-  // let query = "this.fn();";
-  // let result = lang::exec(query).unwrap();
 }

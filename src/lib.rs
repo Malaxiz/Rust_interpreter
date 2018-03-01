@@ -1,11 +1,35 @@
 pub mod lexer;
 pub mod parser;
 
-pub fn exec(query: &str) -> Option<String> {
-  let lexed = lexer::lex(query).unwrap();
-  let parsed = parser::parse(&lexed);
+mod handle_err;
 
-  Some(String::from("temp"))
+pub enum LangErr<'a> {
+  LexErr(lexer::LexErr<'a>),
+  ParserErr(parser::ParserErr<'a>),
+}
+
+fn do_exec(query: &str) -> Result<String, LangErr> {
+  let lexed = match lexer::lex(query) {
+    Ok(val) => val,
+    Err(err) => return Err(LangErr::LexErr(err))
+  };
+
+  let parsed = match parser::parse(&lexed) {
+    Ok(val) => val,
+    Err(err) => return Err(LangErr::ParserErr(err))
+  };
+
+  Ok(String::from("temp"))
+}
+
+pub fn exec(query: &str) -> Result<String, LangErr> {
+  let result = do_exec(query);
+  match result {
+    Err(ref err) => handle_err::handle_err(err, query),
+    _ => {}
+  };
+
+  result
 }
 
 #[cfg(test)]

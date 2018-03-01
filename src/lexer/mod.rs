@@ -237,49 +237,9 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
 /// Lexes a `query: &str` into a vector of tokens: `Vec<Lexed>`.
 pub fn lex<'a>(query: &'a str) -> Result<Vec<Lexed<'a>>, LexErr> {
-  let lexed = match pre_lex(query) {
-    Ok(val) => val,
-    Err(err) => {
-      match err {
-        LexErr::MismatchedQuotes(pos) => {
-          println!("Lexer error: MismatchedQuotes");
-          println!("{}", query);
+  let lexed = pre_lex(query)?;
+  let tokenized = tokenize(lexed)?;
 
-          let mut offset = String::from("");
-          for _i in 0..pos { offset.push('-') }
-          println!("{}^", offset);
-
-          offset.clear();
-          for _i in 0..pos { offset.push(' ') }
-          println!("{} mismatched quote", offset);
-        },
-        _ => {}
-      }
-      return Err(err);
-    }
-  };
-
-  let tokenized = match tokenize(lexed) {
-    Ok(val) => val,
-    Err(err) => {
-      match err {
-        LexErr::UnknownToken(pos, token) => {
-          println!("Lexer error: UnknownToken");
-          println!("{}", query);
-
-          let mut offset = String::from("");
-          for _i in 0..pos { offset.push('-') }
-          println!("{}^", offset);
-
-          offset.clear();
-          for _i in 0..pos { offset.push(' ') }
-          println!("{} unknown token \"{}\"", offset, token);
-        },
-        _ => {}
-      }
-      return Err(err);
-    }
-  };
   println!("{:#?}", tokenized);
 
   Ok(tokenized)

@@ -8,5 +8,7 @@ use lexer::Token;
 pub enum ParserErr<'a> {
   UnexpectedIdentifier(i32, &'a str),
   UnexpectedLiteral(i32, &'a str),
-  UnexpectedToken(i32, Token),
+  // pos, unexpected_token, expected_tokens, expected_literal, expected_identifier
+  UnexpectedToken(i32, Token, Vec<Token>, bool, bool),
+  UnexpectedEndOfLine(i32),
 }

@@ -11,14 +11,14 @@ use lexer::Token::*;
 use lexer::Lexed;
 use lexer::get_tokens;
 
-fn get_string_from_token<'a>(token: &Token, tokens: &HashMap<&'a str, Token>) -> Option<&'a str> {
-  for (k, v) in tokens {
-    if token == v {
-      return Some(k);
-    }
-  }
-  None
-}
+// fn get_string_from_token<'a>(token: &Token, tokens: &HashMap<&'a str, Token>) -> Option<&'a str> {
+//   for (k, v) in tokens {
+//     if token == v {
+//       return Some(k);
+//     }
+//   }
+//   None
+// }
 
 /// Scans the instructions and checks if they're allowed
 fn scan<'a>(lexed: &Vec<Lexed>) -> Result<bool, ParserErr<'a>> {
@@ -39,14 +39,14 @@ fn scan<'a>(lexed: &Vec<Lexed>) -> Result<bool, ParserErr<'a>> {
     let t = &lexed[i];
 
     match t {
-      &Lexed::Literal(ref literal, pos) => {
+      &Lexed::Literal(ref _literal, pos) => {
         if !allowed_literal {
           return Err(ParserErr::UnexpectedLiteral(pos, "[literal]"));
         } else {
 
         }
       },
-      &Lexed::Identifier(name, pos) => {
+      &Lexed::Identifier(_name, pos) => {
         if !allowed_identifier {
           return Err(ParserErr::UnexpectedIdentifier(pos, "[identifier]"));
         } else {
@@ -61,7 +61,10 @@ fn scan<'a>(lexed: &Vec<Lexed>) -> Result<bool, ParserErr<'a>> {
           //   "unknown token"
           // };
 
-          return Err(ParserErr::UnexpectedToken(pos, token));
+          match token {
+            Token::LineBreak => return Err(ParserErr::UnexpectedEndOfLine(pos)),
+            _ => return Err(ParserErr::UnexpectedToken(pos, token, allowed_operators, allowed_literal, allowed_identifier))
+          };
         }
       }
     }
@@ -71,17 +74,17 @@ fn scan<'a>(lexed: &Vec<Lexed>) -> Result<bool, ParserErr<'a>> {
     allowed_identifier = false;
 
     match t {
-      &Lexed::Literal(ref literal, pos) => {
+      &Lexed::Literal(ref _literal, _pos) => {
         allowed_operators = vec![
           Plus, Minus, Asterix, Slash, Dot, ParClose, SemiColon, LineBreak
         ];
       },
-      &Lexed::Identifier(name, pos) => {
+      &Lexed::Identifier(_name, _pos) => {
         allowed_operators = vec![
           Plus, Minus, Asterix, Slash, Dot, ParClose, SemiColon, LineBreak, ParOpen
         ];
       },
-      &Lexed::Operator(token, pos) => {
+      &Lexed::Operator(token, _pos) => {
         match token {
           Plus | Minus | Asterix | Slash => {
             allowed_literal = true;
@@ -123,7 +126,7 @@ fn scan<'a>(lexed: &Vec<Lexed>) -> Result<bool, ParserErr<'a>> {
 }
 
 pub fn parse<'a>(lexed: &Vec<Lexed<'a>>) -> Result<Vec<Lexed<'a>>, ParserErr<'a>> {
-  let scanned = scan(lexed).unwrap();
+  let scanned = scan(lexed)?;
 
   Ok(vec![])
 }
