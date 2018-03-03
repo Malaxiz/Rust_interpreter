@@ -1,8 +1,10 @@
 //! The parser module rearranges the `Vec<Lexed>` result from the lexer module into an easily executable set of instructions.
 
-mod info;
-mod grammar;
+pub mod info;
+pub mod grammar;
 
+pub use self::grammar::Expression;
+pub use self::grammar::Primary;
 pub use self::info::ParserErr;
 
 use std::collections::HashMap;
@@ -11,8 +13,6 @@ use lexer::Token;
 use lexer::Token::*;
 use lexer::Lexed;
 use lexer::get_tokens;
-
-use self::grammar::Expression;
 
 // fn get_string_from_token<'a>(token: &Token, tokens: &HashMap<&'a str, Token>) -> Option<&'a str> {
 //   for (k, v) in tokens {

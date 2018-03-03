@@ -80,5 +80,6 @@ pub fn handle_err(err: &LangErr, query: &str) {
   match err {
     &LangErr::LexErr(ref err) => lexer_err(err, query),
     &LangErr::ParserErr(ref err) => parser_err(err, query),
+    _ => { println!("Unhandled error!"); }
   }
 }

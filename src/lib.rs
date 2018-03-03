@@ -1,11 +1,13 @@
 pub mod lexer;
 pub mod parser;
+pub mod interpreter;
 
 mod handle_err;
 
 pub enum LangErr<'a> {
   LexErr(lexer::LexErr<'a>),
   ParserErr(parser::ParserErr),
+  InterpreterErr(interpreter::InterpreterErr)
 }
 
 fn do_exec(query: &str) -> Result<String, LangErr> {
@@ -13,15 +15,19 @@ fn do_exec(query: &str) -> Result<String, LangErr> {
     Ok(val) => val,
     Err(err) => return Err(LangErr::LexErr(err))
   };
-
   println!("{:?}", lexed);
 
   let parsed = match parser::parse(&lexed) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::ParserErr(err))
   };
-
   println!("{:?}", parsed);
+
+  let interpreted = match interpreter::Interpreter::new().exec_expr(&parsed[0]) {
+    Ok(val) => val,
+    Err(err) => return Err(LangErr::InterpreterErr(err))
+  };
+  println!("{}", interpreted);
 
   Ok(String::from("temp"))
 }
