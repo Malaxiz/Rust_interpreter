@@ -14,17 +14,19 @@ enum PreLexed<'a> {
   Rest(&'a str, i32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Literal {
   String(String),
   Num(f64),
+  Bool(bool),
+  Nil
 }
 
 #[derive(Debug)]
-pub enum Lexed<'a> {
+pub enum Lexed {
   Literal(Literal, i32),
   Operator(Token, i32),
-  Identifier(&'a str, i32),
+  Identifier(String, i32),
 }
 
 fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
@@ -211,9 +213,14 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
           }
 
           if let Some(op) = is_operator(&tokens, trimmed.0) {
-            lexed.push(Lexed::Operator(op, apos));
+            match op {
+              Token::True => lexed.push(Lexed::Literal(Literal::Bool(true), pos)),
+              Token::False => lexed.push(Lexed::Literal(Literal::Bool(false), pos)),
+              Token::Nil => lexed.push(Lexed::Literal(Literal::Nil, pos)),
+              _ => lexed.push(Lexed::Operator(op, apos))
+            }
           } else if is_identifier(trimmed.0) {
-            lexed.push(Lexed::Identifier(trimmed.0, apos));
+            lexed.push(Lexed::Identifier(String::from(trimmed.0), apos));
           } else if is_number(trimmed.0) {
             lexed.push(Lexed::Literal(Literal::Num(trimmed.0.parse::<f64>().unwrap()), apos));
           } else if trimmed.0.len() <= 1 {
@@ -232,15 +239,15 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
     };
   }
 
+  // let last_elem = lexed[lexed.len() - 1];
+  // lexed.push(Lexed::Operator(Token::EOF, ));
+
   Ok(lexed)
 }
 
 /// Lexes a `query: &str` into a vector of tokens: `Vec<Lexed>`.
-pub fn lex<'a>(query: &'a str) -> Result<Vec<Lexed<'a>>, LexErr> {
+pub fn lex(query: &str) -> Result<Vec<Lexed>, LexErr> {
   let lexed = pre_lex(query)?;
   let tokenized = tokenize(lexed)?;
-
-  println!("{:#?}", tokenized);
-
   Ok(tokenized)
 }

@@ -48,17 +48,17 @@ fn parser_err(err: &ParserErr, query: &str) {
   let mut description = String::from("");
 
   match err {
-    &ParserErr::UnexpectedIdentifier(pos, identifier) => {
+    &ParserErr::UnexpectedIdentifier(pos) => {
       title = "Parser error: UnexpectedIdentifier";
       err_pos = pos;
       description = format!("unexpected identifier");
     },
-    &ParserErr::UnexpectedLiteral(pos, literal) => {
+    &ParserErr::UnexpectedLiteral(pos) => {
       title = "Parser error: UnexpectedLiteral";
       err_pos = pos;
       description = format!("unexpected literal");
     },
-    &ParserErr::UnexpectedToken(pos, token, ref allowed_tokens, ref allowed_literal, allowed_identifier) => {
+    &ParserErr::UnexpectedToken(pos, token, ref _allowed_tokens, ref _allowed_literal, _allowed_identifier) => {
       title = "Parser error: UnexpectedToken";
       err_pos = pos;
       description = format!("unexpected token: \"{:#?}\"", token);

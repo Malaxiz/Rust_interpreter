@@ -5,7 +5,7 @@ mod handle_err;
 
 pub enum LangErr<'a> {
   LexErr(lexer::LexErr<'a>),
-  ParserErr(parser::ParserErr<'a>),
+  ParserErr(parser::ParserErr),
 }
 
 fn do_exec(query: &str) -> Result<String, LangErr> {
@@ -14,10 +14,14 @@ fn do_exec(query: &str) -> Result<String, LangErr> {
     Err(err) => return Err(LangErr::LexErr(err))
   };
 
+  println!("{:?}", lexed);
+
   let parsed = match parser::parse(&lexed) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::ParserErr(err))
   };
+
+  println!("{:?}", parsed);
 
   Ok(String::from("temp"))
 }

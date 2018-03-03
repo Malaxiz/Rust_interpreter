@@ -41,6 +41,14 @@ pub enum Token {
 
   // keywords
   If,
+  True,
+  False,
+  Nil,
+
+  // pretend
+  EOF,
+  Literal,
+  Identifier
 }
 
 use self::Token::*;
@@ -65,6 +73,9 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
 
     "\n" => LineBreak,
 
-    "if" => If
+    "if" => If,
+    "true" => True,
+    "false" => False,
+    "nil" => Nil
   }
 }
