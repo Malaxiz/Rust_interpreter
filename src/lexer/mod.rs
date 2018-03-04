@@ -261,10 +261,9 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
     None
   }
 
-  let last_pos: i32;
-  {
+  let last_pos: i32 = if lexed.len() >= 1 {
     let last_elem = &lexed[lexed.len() - 1];
-    last_pos = match last_elem {
+    match last_elem {
       &Lexed::Identifier(ref val, ref pos) => val.len() as i32 + *pos,
       &Lexed::Literal(ref literal, ref pos) => (match literal {
         &Literal::Bool(b) => (if b { "true".len() } else { "false".len() }) as i32,
@@ -277,8 +276,10 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
         Some(val) => val.len() as i32,
         None => 0
       }) + *pos
-    };
-  }
+    }
+  } else {
+    0
+  };
   lexed.push(Lexed::Operator(Token::EOF, last_pos));
 
   Ok(lexed)

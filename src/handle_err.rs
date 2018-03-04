@@ -21,7 +21,7 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
   let pre_query = if line >= 1 { format!("| {}\n", query_vec[line - 1]) } else { format!("") };
   let query = query_vec[line];
   let post_query = if line < query_vec.len() - 1  { format!("| {}\n", query_vec[line + 1]) } else { format!("") };
-  print!("{}\n{}| {}\n", title, pre_query, query);
+  print!("{}\n{}| {}\n", ansi_term::Color::Cyan.bold().paint(title), pre_query, query);
 
   let mut err_pos = err_pos;
   for i in 0..line {
