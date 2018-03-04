@@ -20,7 +20,7 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
 
   let pre_query = if line >= 1 { format!("{}\n", query_vec[line - 1]) } else { format!("") };
   let query = query_vec[line];
-  let post_query = if line < query_vec.len() - 1  { format!("{}\n", query_vec[line + 1]) } else { format!("") };
+  let post_query = if line < query_vec.len() - 1  { format!("\n{}", query_vec[line + 1]) } else { format!("") };
   print!("{}\n{}{}\n", title, pre_query, query);
 
   let mut err_pos = err_pos;
@@ -37,10 +37,10 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
   if description != "" {
     let mut offset = String::from("");
     for _i in 0..err_pos { offset.push(' ') }
-    println!("{}{}", offset, ansi_term::Color::Red.bold().paint(description));
+    print!("{}{}\n", offset, ansi_term::Color::Red.bold().paint(description));
   }
 
-  println!("{}", post_query);
+  print!("{}", post_query);
 }
 
 fn lexer_err(err: &LexErr, query: &str) {

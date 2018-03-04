@@ -132,7 +132,7 @@ impl<'a> Grammar<'a> {
   }
 
   fn assign(&mut self) -> Result<Expression<'a>, ParserErr> {
-    let mut expr = self.if_expr()?;
+    let mut expr = self.print_expr()?;
 
     while let Some((operator, pos)) = self.do_match(&[Equals]) {
       let right = self.assign()?;
@@ -140,6 +140,15 @@ impl<'a> Grammar<'a> {
     }
 
     Ok(expr)
+  }
+
+  fn print_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
+    if let Some((operator, pos)) = self.do_match(&[Print]) {
+      let expr = self.expression()?;
+      return Ok(Expression::PrintExpr(Box::new(expr), pos));
+    }
+
+    self.if_expr()
   }
 
   fn if_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
@@ -171,15 +180,6 @@ impl<'a> Grammar<'a> {
       }
 
       return Ok(Expression::IfExpr(Box::new(expr), decls, else_decls, expr_pos, pos));
-    }
-
-    self.print_expr()
-  }
-
-  fn print_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
-    if let Some((operator, pos)) = self.do_match(&[Print]) {
-      let expr = self.expression()?;
-      return Ok(Expression::PrintExpr(Box::new(expr), pos));
     }
 
     self.equality()
@@ -273,9 +273,12 @@ impl<'a> Grammar<'a> {
       return expr;
     }
 
-    println!("{:?}", self.lexed[self.current]);
+    // last effort
+    let expr = self.expression()?;
+    return Ok(expr);
 
-    Err(ParserErr::GrammarError(5))
+    // println!("{:?}", self.lexed[self.current]);
+    // Err(ParserErr::GrammarError(5))
   }
 
 }

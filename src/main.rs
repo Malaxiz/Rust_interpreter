@@ -20,18 +20,22 @@ fn main() {
   f.read_to_string(&mut contents)
     .expect("something went wrong reading the file");
 
-  let result = lang::exec(&contents, &mut interpreter);
+  lang::exec(&contents, &mut interpreter);
 
-  // loop {
-  //   print!("> ");
-  //   io::stdout().flush();
+  loop {
+    print!("> ");
+    io::stdout().flush();
 
-  //   let mut query = String::new();
-  //   io::stdin().read_line(&mut query)
-  //     .expect("Failed to read line");
+    let mut query = String::new();
+    io::stdin().read_line(&mut query)
+      .expect("Failed to read line");
 
-  //   let result = lang::exec(&query, &mut interpreter);
-  // }
+    query.pop().unwrap();
+    match lang::exec(&query, &mut interpreter) {
+      Ok(res) => print!("{}\n", res),
+      Err(_) => {}
+    };
+  }
 
 
 }

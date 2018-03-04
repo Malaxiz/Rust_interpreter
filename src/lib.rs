@@ -3,6 +3,7 @@ pub mod parser;
 pub mod interpreter;
 
 use interpreter::Interpreter;
+use lexer::Literal;
 
 mod handle_err;
 
@@ -27,12 +28,19 @@ fn do_exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<Strin
   // println!("{:?}", parsed);
 
   let interpreted = match interpreter.exec_program(&parsed) {
-    Ok(_) => {},
+    Ok(val) => {
+      match val {
+        Literal::Bool(b) => String::from(if b { "true" } else { "false" }),
+        Literal::String(s) => s,
+        Literal::Num(n) => n.to_string(),
+        Literal::Nil => String::from("nil"),
+        Literal::Variable(v) => String::from("variable")
+      }
+    },
     Err(err) => return Err(LangErr::InterpreterErr(err))
   };
-  // println!("{}", interpreted);
 
-  Ok(String::from("temp"))
+  Ok(interpreted)
 }
 
 pub fn exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<String, LangErr<'a>> {
