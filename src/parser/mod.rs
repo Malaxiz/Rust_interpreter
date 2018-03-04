@@ -34,6 +34,9 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
     ParOpen,
     LineBreak,
     SemiColon,
+    LineBreak,
+    Bang,
+    Minus
   ];
 
   let mut i = 0;
@@ -79,12 +82,14 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
     match t {
       &Lexed::Literal(ref _literal, _pos) => {
         allowed_operators = vec![
-          Plus, Minus, Asterix, Slash, Dot, ParClose, SemiColon, LineBreak
+          Plus, Minus, Asterix, DoubleAsterix, Slash, Dot, ParClose, SemiColon, LineBreak,
+          EqualsEquals, BangEquals, LtOrEquals, GtOrEquals, Gt, Lt
         ];
       },
       &Lexed::Identifier(ref _name, _pos) => {
         allowed_operators = vec![
-          Equals, Plus, Minus, Asterix, Slash, Dot, ParClose, SemiColon, LineBreak, ParOpen
+          Equals, Plus, Minus, Asterix, DoubleAsterix, Slash, Dot, ParClose, SemiColon, LineBreak, ParOpen,
+          EqualsEquals, BangEquals, LtOrEquals, GtOrEquals, Gt, Lt
         ];
       },
       &Lexed::Operator(token, _pos) => {
@@ -93,16 +98,20 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              ParOpen, Minus
+              ParOpen, Minus, Bang
             ];
           },
-          Plus | Minus | Asterix | Slash => {
+          Plus | Minus | Asterix | Slash | Bang | DoubleAsterix => {
             allowed_literal = true;
             allowed_identifier = true;
             allowed_operators = vec![
-              ParOpen, Minus
+              ParOpen, Minus, Bang
             ];
           },
+          EqualsEquals | BangEquals | LtOrEquals | GtOrEquals | Gt | Lt => {
+            allowed_literal = true;
+            allowed_identifier = true;
+          }
           Dot => {
             allowed_identifier = true;
           },

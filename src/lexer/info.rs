@@ -25,7 +25,10 @@ pub enum Token {
   Plus,
   Minus,
   Asterix,
+  DoubleAsterix,
   Slash,
+  Bang,
+
   SemiColon,
   Colon,
   Dot,
@@ -33,9 +36,13 @@ pub enum Token {
 
   ParOpen,
   ParClose,
-
-  LtOrEq,
-  GtOrEq,
+  
+  EqualsEquals,
+  BangEquals,
+  LtOrEquals,
+  GtOrEquals,
+  Gt,
+  Lt,
 
   LineBreak,
 
@@ -48,7 +55,7 @@ pub enum Token {
   // pretend
   EOF,
   Literal,
-  Identifier
+  Identifier,
 }
 
 use self::Token::*;
@@ -59,7 +66,10 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "+" => Plus,
     "-" => Minus,
     "*" => Asterix,
+    "**" => DoubleAsterix,
     "/" => Slash,
+    "!" => Bang,
+
     ";" => SemiColon,
     ":" => Colon,
     "." => Dot,
@@ -68,8 +78,12 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "(" => ParOpen,
     ")" => ParClose,
     
-    ">=" => GtOrEq,
-    "<=" => LtOrEq,
+    "==" => EqualsEquals,
+    "!=" => BangEquals,
+    ">=" => GtOrEquals,
+    "<=" => LtOrEquals,
+    ">" => Gt,
+    "<" => Lt,
 
     "\n" => LineBreak,
 

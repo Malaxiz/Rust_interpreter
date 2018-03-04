@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["didrik-mac <malaxiz.main@gmail.com>"]
 
 [dependencies]
+ansi_term = "0.11.0"

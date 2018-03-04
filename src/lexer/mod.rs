@@ -20,6 +20,7 @@ pub enum Literal {
   Num(f64),
   Bool(bool),
   Nil,
+  // Function(Vec<String>, ),
 
   Variable(String)
 }
@@ -42,11 +43,12 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
   for (i, c) in query.chars().enumerate() {
     match c {
       '\\' => {
-        skip_next = true;
+        skip_next = !skip_next;
         continue;
       },
       '"' => {
         if skip_next {
+          skip_next = false;
           continue;
         }
 
@@ -64,7 +66,6 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
       },
       _ => { }
     }
-    skip_next = false;
   }
 
   if quote_count % 2 != 0 {

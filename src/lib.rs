@@ -17,22 +17,18 @@ fn do_exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<Strin
     Ok(val) => val,
     Err(err) => return Err(LangErr::LexErr(err))
   };
-  println!("{:?}", lexed);
+  // println!("{:?}", lexed);
 
   let parsed = match parser::parse(&lexed) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::ParserErr(err))
   };
-  println!("{:?}", parsed);
+  // println!("{:?}", parsed);
 
   let interpreted = match interpreter.exec_expr(&parsed[0]) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::InterpreterErr(err))
   };
-  // let interpreted = match interpreted {
-  //   &
-  //   _ => interpreted
-  // }
   println!("{}", interpreted);
 
   Ok(String::from("temp"))

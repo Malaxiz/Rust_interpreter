@@ -1,22 +1,46 @@
+extern crate ansi_term;
+
 use LangErr;
 use lexer::LexErr;
 use parser::ParserErr;
 use interpreter::InterpreterErr;
 
 fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
-  print!("{}\n{}", title, query);
+  let query_vec: Vec<&str> = query.split('\n').collect();
 
+  let mut line = 0;
+  for (k, v) in query.chars().enumerate() {
+    if k >= err_pos as usize {
+      break;
+    }
+    if v == '\n' {
+      line += 1;
+    }
+  }
+
+  let pre_query = if line >= 1 { format!("{}\n", query_vec[line - 1]) } else { format!("") };
+  let query = query_vec[line];
+  let post_query = if line <= query_vec.len() - 1  { format!("{}\n", query_vec[line + 1]) } else { format!("") };
+  print!("{}\n{}{}\n", title, pre_query, query);
+
+  let mut err_pos = err_pos - 1;
+  for i in 0..line {
+    err_pos -= query_vec[i].len() as i32;
+  }
+ 
   if err_pos >= 0 {
     let mut offset = String::from("");
     for _i in 0..err_pos { offset.push('-') }
-    println!("{}^", offset);
+    println!("{}{}", ansi_term::Color::Red.bold().paint(offset), ansi_term::Color::Red.bold().paint("^"));
   }
 
   if description != "" {
     let mut offset = String::from("");
     for _i in 0..err_pos { offset.push(' ') }
-    println!("{}{}", offset, description);
+    println!("{}{}", offset, ansi_term::Color::Red.bold().paint(description));
   }
+
+  println!("{}", post_query);
 }
 
 fn lexer_err(err: &LexErr, query: &str) {
