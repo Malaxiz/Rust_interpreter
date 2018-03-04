@@ -25,6 +25,7 @@ pub enum InterpreterErr {
   TempError,
   ArithmeticErr(&'static str, &'static str, Token, i32),
   IdentifierNotFound(String, i32),
+  CastErr(&'static str, &'static str, i32),
 }
 
 pub struct Interpreter {
@@ -40,41 +41,33 @@ impl<'a> Interpreter {
     }
   }
 
-  pub fn exec_program(&mut self, program: &Vec<Box<Declaration<'a>>>) -> Result<(), InterpreterErr> {
-  
+  pub fn exec_program(&mut self, program: &Vec<Box<Declaration<'a>>>) -> Result<Literal, InterpreterErr> {
+    let mut last_res: Literal = Literal::Nil;
+
     for i in program {
-      self.exec_decl(i)?;
+      last_res = self.exec_decl(i)?;
     }
 
-    Ok(())
+    Ok(last_res)
   }
 
-  fn exec_decl(&mut self, decl: &Declaration) -> Result<(), InterpreterErr> {
+  fn exec_decl(&mut self, decl: &Declaration) -> Result<Literal, InterpreterErr> {
 
     match decl {
       &Declaration::Statement(ref stmt, ref _pos) => self.exec_stmt(stmt)
     }
   }
 
-  fn exec_stmt(&mut self, stmt: &Statement) -> Result<(), InterpreterErr> {
+  fn exec_stmt(&mut self, stmt: &Statement) -> Result<Literal, InterpreterErr> {
 
     match stmt {
-      &Statement::ExpressionStmt(ref expr, ref pos) => {
-        self.exec_expr(expr)?;
-        Ok(())
-      },
-      &Statement::PrintStmt(ref expr, ref pos) => {
+      &Statement::ExpressionStmt(ref expr, ref is_statement, ref _pos) => {
         let res = self.exec_expr(expr)?;
-        let to_print = match res {
-          Literal::String(s) => s,
-          Literal::Bool(b) => String::from(if b { "true" } else { "false" }),
-          Literal::Nil => String::from("nil"),
-          Literal::Num(n) => n.to_string(),
-          _ => String::from("should not happen")
-        };
-
-        println!("{}", to_print);
-        Ok(())
+        if *is_statement {
+          Ok(Literal::Nil)
+        } else {
+          Ok(res)
+        }
       }
     }
   }
@@ -116,6 +109,37 @@ impl<'a> Interpreter {
           &Primary::Identifier(identifier) => Ok(Literal::Variable(String::from(identifier))),
           &Primary::Literal(literal) => Ok(literal.clone())
         }
+      },
+      &Expression::IfExpr(ref expr, ref decls, ref else_decls, ref pos) => {
+        let res = self.exec_expr(expr)?;
+        let res: bool = match res {
+          Literal::Bool(b) => b,
+          Literal::Nil => false, // temp ?
+          Literal::Num(_) => return Err(InterpreterErr::CastErr("num", "bool", *pos)),
+          Literal::String(_) => return Err(InterpreterErr::CastErr("string", "bool", *pos)),
+          Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable", "bool", *pos)), // should not happen
+        };
+
+        let last_item = self.exec_program(if res {
+          decls
+        } else {
+          else_decls
+        })?;
+
+        Ok(last_item)
+      },
+      &Expression::PrintExpr(ref expr, ref _pos) => {
+        let res = self.exec_expr(expr)?;
+        let to_print = match res {
+          Literal::String(ref s) => String::from(s as &str),
+          Literal::Bool(b) => String::from(if b { "true" } else { "false" }),
+          Literal::Nil => String::from("nil"),
+          Literal::Num(n) => n.to_string(),
+          _ => String::from("should not happen")
+        };
+
+        println!("{}", to_print);
+        Ok(res)
       }
     }
   }

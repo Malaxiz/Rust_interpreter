@@ -38,17 +38,17 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
   let mut quote_count = 0;
   let mut in_quote = false;
   let mut start = 0;
-  let mut skip_next = false;
+  let mut escaped = false;
 
   for (i, c) in query.chars().enumerate() {
     match c {
       '\\' => {
-        skip_next = !skip_next;
+        escaped = !escaped;
         continue;
       },
       '"' => {
-        if skip_next {
-          skip_next = false;
+        if escaped {
+          escaped = false;
           continue;
         }
 
@@ -64,7 +64,9 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
 
         start = i+1;
       },
-      _ => { }
+      _ => {
+        escaped = false;
+      }
     }
   }
 

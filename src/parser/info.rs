@@ -13,6 +13,8 @@ pub enum ParserErr {
   UnexpectedEndOfLine(i32),
 
   ExpectedSemiColon(i32),
+  ExpectedBraceOpen(i32),
+  ExpectedBraceClose(i32),
   MismatchedParenthesis(i32),
 
   GrammarError(i32),

@@ -23,9 +23,9 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
   let post_query = if line < query_vec.len() - 1  { format!("{}\n", query_vec[line + 1]) } else { format!("") };
   print!("{}\n{}{}\n", title, pre_query, query);
 
-  let mut err_pos = err_pos - 1;
+  let mut err_pos = err_pos;
   for i in 0..line {
-    err_pos -= query_vec[i].len() as i32;
+    err_pos -= query_vec[i].len() as i32 + 1;
   }
  
   if err_pos >= 0 {
@@ -92,6 +92,11 @@ fn parser_err(err: &ParserErr, query: &str) {
       title = "Parser error: UnexpectedEndOfLine";
       err_pos = pos;
       description = format!("unexpected end of line");
+    },
+    &ParserErr::ExpectedSemiColon(pos) => {
+      title = "Parser error: ExpectedSemiColon";
+      err_pos = pos;
+      description = format!("expected semicolon");
     },
     _ => {
       title = "Parser error: undefined";

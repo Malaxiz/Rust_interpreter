@@ -33,6 +33,8 @@ pub enum Token {
   Colon,
   Dot,
   DotDot,
+  BraceClose,
+  BraceOpen,
 
   ParOpen,
   ParClose,
@@ -48,6 +50,7 @@ pub enum Token {
 
   // keywords
   If,
+  Else,
   True,
   False,
   Nil,
@@ -77,6 +80,8 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     ":" => Colon,
     "." => Dot,
     ".." => DotDot,
+    "{" => BraceOpen,
+    "}" => BraceClose,
 
     "(" => ParOpen,
     ")" => ParClose,
@@ -91,6 +96,7 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "\n" => LineBreak,
 
     "if" => If,
+    "else" => Else,
     "true" => True,
     "false" => False,
     "nil" => Nil,
