@@ -186,9 +186,9 @@ fn trim<'a>(val: &'a str) -> (&'a str, i32, i32) {
 
 fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
-  let tokens: HashMap<&str, Token> = info::get_tokens();
+  let prev_tokens: HashMap<&str, Token> = info::get_tokens();
 
-  let tokens: Vec<(&&str, &Token)> = tokens.iter().collect();
+  let tokens: Vec<(&&str, &Token)> = prev_tokens.iter().collect();
   // tokens.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
 
   let mut lexed: Vec<Lexed> = Vec::new();
@@ -244,9 +244,6 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
     };
   }
 
-  // let last_elem = lexed[lexed.len() - 1];
-  lexed.push(Lexed::Operator(Token::EOF, 0));
-
   // remove linebreaks
   lexed.retain(|&ref i| match i {
     &Lexed::Operator(op, _) => {
@@ -254,6 +251,35 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
     }
     _ => true
   });
+
+  fn get_string_from_token<'a>(token: &Token, tokens: &HashMap<&'a str, Token>) -> Option<&'a str> {
+    for (k, v) in tokens {
+      if token == v {
+        return Some(k);
+      }
+    }
+    None
+  }
+
+  let last_pos: i32;
+  {
+    let last_elem = &lexed[lexed.len() - 1];
+    last_pos = match last_elem {
+      &Lexed::Identifier(ref val, ref pos) => val.len() as i32 + *pos,
+      &Lexed::Literal(ref literal, ref pos) => (match literal {
+        &Literal::Bool(b) => (if b { "true".len() } else { "false".len() }) as i32,
+        &Literal::Nil => "nil".len() as i32,
+        &Literal::Num(i) => i.to_string().len() as i32,
+        &Literal::String(ref s) => s.len() as i32,
+        &Literal::Variable(_) => 0
+      }) + *pos,
+      &Lexed::Operator(ref operator, ref pos) => (match get_string_from_token(operator, &prev_tokens) {
+        Some(val) => val.len() as i32,
+        None => 0
+      }) + *pos
+    };
+  }
+  lexed.push(Lexed::Operator(Token::EOF, last_pos));
 
   Ok(lexed)
 }

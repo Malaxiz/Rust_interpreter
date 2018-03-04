@@ -99,6 +99,16 @@ fn parser_err(err: &ParserErr, query: &str) {
       err_pos = pos;
       description = format!("expected semicolon");
     },
+    &ParserErr::ExpectedBraceOpen(pos) => {
+      title = "Parser error: ExpectedBraceOpen";
+      err_pos = pos;
+      description = format!("expected open brace for if expression");
+    },
+    &ParserErr::MismatchedParenthesis(pos) => {
+      title = "Parser error: MismatchedParenthesis";
+      err_pos = pos;
+      description = format!("mismatched parenthesis");
+    }
     _ => {
       title = "Parser error!";
       description = format!("{:?}", err);

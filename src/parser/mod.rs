@@ -14,15 +14,6 @@ use lexer::Token;
 use lexer::Token::*;
 use lexer::Lexed;
 
-// fn get_string_from_token<'a>(token: &Token, tokens: &HashMap<&'a str, Token>) -> Option<&'a str> {
-//   for (k, v) in tokens {
-//     if token == v {
-//       return Some(k);
-//     }
-//   }
-//   None
-// }
-
 /// Checks the instructions and checks if they're allowed
 pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
   // let atokens: HashMap<&str, Token> = get_tokens();

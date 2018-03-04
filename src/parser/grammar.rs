@@ -155,11 +155,11 @@ impl<'a> Grammar<'a> {
     let pos = self.get_pos();
 
     // if expression
-    if let Some(_) = self.do_match(&[If]) {
+    if let Some((operator, pos)) = self.do_match(&[If]) {
       let expr_pos = self.get_pos();
       let expr = self.expression()?;
       if let None = self.do_match(&[BraceOpen]) {
-        return Err(ParserErr::ExpectedBraceOpen(self.get_pos()));
+        return Err(ParserErr::ExpectedBraceOpen(pos));
       }
 
       let mut decls: Vec<Box<Declaration>> = vec![];
@@ -169,9 +169,9 @@ impl<'a> Grammar<'a> {
         decls.push(Box::new(self.declaration()?));
       }
 
-      if let Some(_) = self.do_match(&[Else]) {
+      if let Some((operator, pos)) = self.do_match(&[Else]) {
         if let None = self.do_match(&[BraceOpen]) {
-          return Err(ParserErr::ExpectedBraceOpen(self.get_pos()));
+          return Err(ParserErr::ExpectedBraceOpen(pos));
         }
 
         while let None = self.do_match(&[BraceClose]) {
@@ -260,14 +260,9 @@ impl<'a> Grammar<'a> {
     }
 
     let matched = self.do_match(&[Token::ParOpen]);
-    if let Some(_) = matched {
+    if let Some((operator, pos)) = matched {
       let expr = self.expression();
       if let None = self.do_match(&[Token::ParClose]) {
-        let pos = match self.lexed[self.current - 1] {
-          Lexed::Literal(_, pos) => pos,
-          Lexed::Identifier(_, pos) => pos,
-          Lexed::Operator(_, pos) => pos
-        };
         return Err(ParserErr::MismatchedParenthesis(pos));
       }
       return expr;
