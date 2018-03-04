@@ -162,14 +162,14 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              Minus, Bang, ParOpen, Print
+              Minus, Bang, ParOpen, Print, If
             ];
           },
           BraceClose => {
-            allowed_identifier = true;
-            allowed_literal = true;
+            // allowed_identifier = true;
+            // allowed_literal = true;
             allowed_operators = vec![
-              Minus, Bang, ParOpen, Print, EOF, BraceClose, Else
+              Else, SemiColon, BraceClose
             ];
           }
           _ => {
