@@ -18,10 +18,10 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
     }
   }
 
-  let pre_query = if line >= 1 { format!("{}\n", query_vec[line - 1]) } else { format!("") };
+  let pre_query = if line >= 1 { format!("| {}\n", query_vec[line - 1]) } else { format!("") };
   let query = query_vec[line];
-  let post_query = if line < query_vec.len() - 1  { format!("\n{}", query_vec[line + 1]) } else { format!("\n") };
-  print!("{}\n| {}{}\n", title, pre_query, query);
+  let post_query = if line < query_vec.len() - 1  { format!("| {}\n", query_vec[line + 1]) } else { format!("") };
+  print!("{}\n{}| {}\n", title, pre_query, query);
 
   let mut err_pos = err_pos;
   for i in 0..line {
@@ -40,7 +40,7 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
     print!("| {}{}\n", offset, ansi_term::Color::Red.bold().paint(description));
   }
 
-  print!("| {}", post_query);
+  print!("{}", post_query);
 }
 
 fn lexer_err(err: &LexErr, query: &str) {

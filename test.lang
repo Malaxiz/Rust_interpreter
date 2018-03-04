@@ -8,9 +8,9 @@ b = if a == 5 {
   }
 };
 
-print! a;
 print! b;
 print! u;
+print! a;
 
 print! "hello " + print! "hello " + if false { " there" } else { "you" };
 
