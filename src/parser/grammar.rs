@@ -5,17 +5,37 @@ use lexer::Lexed;
 use lexer::Token;
 use lexer::Token::*;
 
+// not used
+pub struct Program<'a>(Vec<Box<Declaration<'a>>>);
+
+#[derive(Debug)]
+pub enum Declaration<'a> {
+  Statement(Box<Statement<'a>>, i32),
+  // FunctionDecl(Box<FunctionDecl>, i32),
+}
+
+#[derive(Debug)]
+pub enum Statement<'a> {
+  ExpressionStmt(Box<Expression<'a>>, i32),
+  PrintStmt(Box<Expression<'a>>, i32),
+  // BlockStmt(Vec<Box<Declaration<'a>>>, i32),
+}
+
 #[derive(Debug)]
 pub enum Expression<'a> {
   Binary(Box<Expression<'a>>, (Token, i32), Box<Expression<'a>>),
   Primary(Primary<'a>, i32)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Primary<'a> {
   Literal(&'a lexer::Literal),
   Identifier(&'a str)
 }
+
+// pub enum FunctionDecl {
+//   Block()
+// }
 
 pub struct Grammar<'a> {
   lexed: &'a Vec<Lexed>,
@@ -57,9 +77,50 @@ impl<'a> Grammar<'a> {
     self.current += 1;
   }
 
-  // pub fn program(&mut self) -> Result<> {
+  fn get_pos(&self) -> i32 {
+    match self.lexed[self.current] {
+      Lexed::Identifier(_, pos) => pos,
+      Lexed::Literal(_, pos) => pos,
+      Lexed::Operator(_, pos) => pos
+    }
+  }
 
-  // }
+  pub fn program(&mut self) -> Result<Vec<Box<Declaration<'a>>>, ParserErr> {
+    let mut declarations: Vec<Box<Declaration>> = vec![];
+    while self.current < self.lexed.len() - 1 {
+      declarations.push(Box::new(self.declaration()?));
+    }
+
+    Ok(
+      declarations
+    )
+  }
+
+  fn declaration(&mut self) -> Result<Declaration<'a>, ParserErr> {
+    let pos = self.get_pos();
+    let stmt = self.statement()?;
+    Ok(Declaration::Statement(Box::new(stmt), pos))
+  }
+
+  fn statement(&mut self) -> Result<Statement<'a>, ParserErr> {
+    let pos = self.get_pos();
+
+    if let Some((operator, pos)) = self.do_match(&[Print]) {
+      let expr = self.expression()?;
+      if let None = self.do_match(&[SemiColon]) {
+        return Err(ParserErr::ExpectedSemiColon(self.get_pos()))
+      } else {
+        return Ok(Statement::PrintStmt(Box::new(expr), pos))
+      }
+    }
+
+    let expr = self.expression()?;
+    if let Some((_operator, pos)) = self.do_match(&[SemiColon]) {
+      return Ok(Statement::ExpressionStmt(Box::new(expr), pos))
+    } else {
+      return Err(ParserErr::ExpectedSemiColon(self.get_pos()))
+    }
+  }
 
   pub fn expression(&mut self) -> Result<Expression<'a>, ParserErr> {
     self.assign()
@@ -164,7 +225,7 @@ impl<'a> Grammar<'a> {
       return expr;
     }
 
-    Err(ParserErr::GrammarError(0))
+    Err(ParserErr::GrammarError(5))
   }
 
 }

@@ -12,6 +12,7 @@ pub enum ParserErr {
   UnexpectedToken(i32, Token, Vec<Token>, bool, bool),
   UnexpectedEndOfLine(i32),
 
+  ExpectedSemiColon(i32),
   MismatchedParenthesis(i32),
 
   GrammarError(i32),

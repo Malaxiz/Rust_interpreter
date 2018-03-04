@@ -243,7 +243,15 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
   }
 
   // let last_elem = lexed[lexed.len() - 1];
-  // lexed.push(Lexed::Operator(Token::EOF, ));
+  lexed.push(Lexed::Operator(Token::EOF, 0));
+
+  // remove linebreaks
+  lexed.retain(|&ref i| match i {
+    &Lexed::Operator(op, _) => {
+      op != Token::LineBreak
+    }
+    _ => true
+  });
 
   Ok(lexed)
 }

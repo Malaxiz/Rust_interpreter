@@ -6,6 +6,7 @@ use interpreter::Interpreter;
 
 mod handle_err;
 
+#[derive(Debug)]
 pub enum LangErr<'a> {
   LexErr(lexer::LexErr<'a>),
   ParserErr(parser::ParserErr),
@@ -25,11 +26,11 @@ fn do_exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<Strin
   };
   // println!("{:?}", parsed);
 
-  let interpreted = match interpreter.exec_expr(&parsed[0]) {
-    Ok(val) => val,
+  let interpreted = match interpreter.exec_program(&parsed) {
+    Ok(_) => {},
     Err(err) => return Err(LangErr::InterpreterErr(err))
   };
-  println!("{}", interpreted);
+  // println!("{}", interpreted);
 
   Ok(String::from("temp"))
 }
@@ -37,7 +38,10 @@ fn do_exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<Strin
 pub fn exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<String, LangErr<'a>> {
   let result = do_exec(query, interpreter);
   match result {
-    Err(ref err) => handle_err::handle_err(err, query),
+    Err(ref err) => {
+      println!("{:?}", err);
+      handle_err::handle_err(err, query)
+    },
     _ => {}
   };
 

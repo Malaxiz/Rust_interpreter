@@ -3,16 +3,16 @@
 pub mod info;
 pub mod grammar;
 
+pub use self::grammar::Program;
+pub use self::grammar::Declaration;
+pub use self::grammar::Statement;
 pub use self::grammar::Expression;
 pub use self::grammar::Primary;
 pub use self::info::ParserErr;
 
-use std::collections::HashMap;
-
 use lexer::Token;
 use lexer::Token::*;
 use lexer::Lexed;
-use lexer::get_tokens;
 
 // fn get_string_from_token<'a>(token: &Token, tokens: &HashMap<&'a str, Token>) -> Option<&'a str> {
 //   for (k, v) in tokens {
@@ -34,9 +34,10 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
     ParOpen,
     LineBreak,
     SemiColon,
-    LineBreak,
     Bang,
-    Minus
+    Minus,
+    EOF,
+    Print
   ];
 
   let mut i = 0;
@@ -124,14 +125,21 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
           },
           ParClose => {
             allowed_operators = vec![
-              ParClose, ParOpen, Plus, Minus, Asterix, Slash, Dot, SemiColon, LineBreak
+              ParClose, ParOpen, Plus, Minus, Asterix, Slash, Dot, SemiColon
             ];
           },
           SemiColon => {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              SemiColon, LineBreak, ParOpen
+              SemiColon, ParOpen, EOF, Print
+            ];
+          },
+          Print => {
+            allowed_identifier = true;
+            allowed_literal = true;
+            allowed_operators = vec![
+              Minus, Bang, ParOpen
             ];
           }
           _ => {
@@ -147,14 +155,11 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
   Ok(())
 }
 
-fn ast<'a>(checked: &Vec<Lexed>) -> Result<Expression, ParserErr> {
-  let mut g = grammar::Grammar::new(checked);
-  g.expression()
-}
+pub fn parse(lexed: &Vec<Lexed>) -> Result<Vec<Box<Declaration>>, ParserErr> {
+  check(lexed)?;
+  
+  let mut g = grammar::Grammar::new(lexed);
+  let program = g.program()?;
 
-pub fn parse(lexed: &Vec<Lexed>) -> Result<Vec<Expression>, ParserErr> {
-  let checked = check(lexed)?;
-  let ast = ast(lexed)?;
-
-  Ok(vec![ast])
+  Ok(program)
 }

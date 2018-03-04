@@ -1,3 +1,6 @@
+use parser::Program;
+use parser::Declaration;
+use parser::Statement;
 use parser::Expression;
 use parser::Primary;
 use lexer::Literal;
@@ -37,7 +40,46 @@ impl<'a> Interpreter {
     }
   }
 
-  pub fn exec_expr(&mut self, expression: &Expression<'a>) -> Result<String, InterpreterErr> {
+  pub fn exec_program(&mut self, program: &Vec<Box<Declaration<'a>>>) -> Result<(), InterpreterErr> {
+  
+    for i in program {
+      self.exec_decl(i)?;
+    }
+
+    Ok(())
+  }
+
+  fn exec_decl(&mut self, decl: &Declaration) -> Result<(), InterpreterErr> {
+
+    match decl {
+      &Declaration::Statement(ref stmt, ref _pos) => self.exec_stmt(stmt)
+    }
+  }
+
+  fn exec_stmt(&mut self, stmt: &Statement) -> Result<(), InterpreterErr> {
+
+    match stmt {
+      &Statement::ExpressionStmt(ref expr, ref pos) => {
+        self.exec_expr(expr)?;
+        Ok(())
+      },
+      &Statement::PrintStmt(ref expr, ref pos) => {
+        let res = self.exec_expr(expr)?;
+        let to_print = match res {
+          Literal::String(s) => s,
+          Literal::Bool(b) => String::from(if b { "true" } else { "false" }),
+          Literal::Nil => String::from("nil"),
+          Literal::Num(n) => n.to_string(),
+          _ => String::from("should not happen")
+        };
+
+        println!("{}", to_print);
+        Ok(())
+      }
+    }
+  }
+
+  fn exec_expr(&mut self, expression: &Expression<'a>) -> Result<Literal, InterpreterErr> {
     let res = self.exec_binary(expression)?;
     let res = match res {
       Literal::Variable(ref name) => {
@@ -49,7 +91,8 @@ impl<'a> Interpreter {
       },
       _ => res
     };
-    Ok(format!("{:?}", res))
+    // Ok(format!("{:?}", res))
+    Ok(res)
   }
 
   fn exec_binary(&mut self, expression: &Expression<'a>) -> Result<Literal, InterpreterErr> {
