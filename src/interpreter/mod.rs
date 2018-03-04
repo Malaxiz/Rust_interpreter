@@ -79,12 +79,17 @@ impl<'a> Interpreter {
         if let Some(val) = self.variables.get(name as &str) {
           val.clone()
         } else {
-          Literal::Nil
+          let pos = match expression {
+            &Expression::Primary(_, ref pos) => *pos,
+            _ => 0
+          };
+          return Err(InterpreterErr::IdentifierNotFound(String::from(name as &str), pos)) // temp design choice ?
+          // Literal::Nil
         }
       },
       _ => res
     };
-    // Ok(format!("{:?}", res))
+    
     Ok(res)
   }
 
