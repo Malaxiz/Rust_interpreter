@@ -95,7 +95,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_operators = vec![
               ParOpen, Minus
             ];
-          }
+          },
           Plus | Minus | Asterix | Slash => {
             allowed_literal = true;
             allowed_identifier = true;

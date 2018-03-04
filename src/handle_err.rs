@@ -86,7 +86,7 @@ fn interpreter_err(err: &InterpreterErr, query: &str) {
     &InterpreterErr::ArithmeticErr(ref left, ref right, ref operation, ref pos) => {
       title = "Interpreter error: ArithmeticErr";
       err_pos = *pos;
-      description = format!("opereration [\"{:?}\"] not defined for types: [\"{}\"], [\"{}\"]", operation, left, right);
+      description = format!("opereration \"{:?}\" not defined for types: \"{}\", \"{}\"", operation, left, right);
     },
     &InterpreterErr::IdentifierNotFound(ref identifier, ref pos) => {
       title = "Interpreter error: IdentifierNotFound";

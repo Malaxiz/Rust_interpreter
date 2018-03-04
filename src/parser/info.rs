@@ -13,4 +13,5 @@ pub enum ParserErr {
   UnexpectedEndOfLine(i32),
 
   GrammarError(i32),
+  UnknownErr,
 }

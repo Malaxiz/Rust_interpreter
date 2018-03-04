@@ -58,7 +58,18 @@ impl<'a> Grammar<'a> {
   }
 
   pub fn expression(&mut self) -> Result<Expression<'a>, ParserErr> {
-    self.addition()
+    self.assign()
+  }
+
+  fn assign(&mut self) -> Result<Expression<'a>, ParserErr> {
+    let mut expr = self.addition()?;
+
+    while let Some((operator, pos)) = self.do_match(&[Equals]) {
+      let right = self.assign()?;
+      expr = Expression::Binary(Box::new(expr), (operator, pos), Box::new(right));
+    }
+
+    Ok(expr)
   }
 
   fn addition(&mut self) -> Result<Expression<'a>, ParserErr> {

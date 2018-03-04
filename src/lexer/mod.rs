@@ -19,7 +19,9 @@ pub enum Literal {
   String(String),
   Num(f64),
   Bool(bool),
-  Nil
+  Nil,
+
+  Variable(String)
 }
 
 #[derive(Debug)]
