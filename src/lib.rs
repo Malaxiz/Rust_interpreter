@@ -23,7 +23,8 @@ fn do_exec(query: &str) -> Result<String, LangErr> {
   };
   println!("{:?}", parsed);
 
-  let interpreted = match interpreter::Interpreter::new().exec_expr(&parsed[0]) {
+  let interpreter = interpreter::Interpreter::new();
+  let interpreted = match interpreter.exec_expr(&parsed[0]) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::InterpreterErr(err))
   };

@@ -57,10 +57,6 @@ impl<'a> Grammar<'a> {
     self.current += 1;
   }
 
-  fn previous(&'a self) -> &Lexed {
-    &self.lexed[self.current - 1]
-  }
-
   pub fn expression(&mut self) -> Result<Expression<'a>, ParserErr> {
     self.addition()
   }
