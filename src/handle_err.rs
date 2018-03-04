@@ -60,7 +60,8 @@ fn lexer_err(err: &LexErr, query: &str) {
       description = format!("unknown token \"{}\"", token);
     },
     _ => {
-      title = "Lexer error: undefined"
+      title = "Lexer error!";
+      description = format!("{:?}", err);
     }
   }
 
@@ -99,7 +100,8 @@ fn parser_err(err: &ParserErr, query: &str) {
       description = format!("expected semicolon");
     },
     _ => {
-      title = "Parser error: undefined";
+      title = "Parser error!";
+      description = format!("{:?}", err);
     }
   }
 
@@ -122,8 +124,14 @@ fn interpreter_err(err: &InterpreterErr, query: &str) {
       err_pos = *pos;
       description = format!("identifier \"{}\" not found in this scope", identifier);
     },
+    &InterpreterErr::CastErr(ref type1, ref type2, ref pos) => {
+      title = "Interpreter error: CastErr";
+      err_pos = *pos;
+      description = format!("cannot cast type \"{}\" into \"{}\"", type1, type2);
+    }
     _ => {
-      title = "Unknown interpreter error!"
+      title = "Interpreter error!";
+      description = format!("{:?}", err);
     }
   }
 

@@ -39,7 +39,7 @@ pub fn exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<Stri
   let result = do_exec(query, interpreter);
   match result {
     Err(ref err) => {
-      println!("{:?}", err);
+      // println!("{:?}", err);
       handle_err::handle_err(err, query)
     },
     _ => {}

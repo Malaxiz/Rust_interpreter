@@ -110,14 +110,15 @@ impl<'a> Interpreter {
           &Primary::Literal(literal) => Ok(literal.clone())
         }
       },
-      &Expression::IfExpr(ref expr, ref decls, ref else_decls, ref pos) => {
+      &Expression::IfExpr(ref expr, ref decls, ref else_decls, ref expr_pos, ref pos) => {
         let res = self.exec_expr(expr)?;
+
         let res: bool = match res {
           Literal::Bool(b) => b,
           Literal::Nil => false, // temp ?
-          Literal::Num(_) => return Err(InterpreterErr::CastErr("num", "bool", *pos)),
-          Literal::String(_) => return Err(InterpreterErr::CastErr("string", "bool", *pos)),
-          Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable", "bool", *pos)), // should not happen
+          Literal::Num(_) => return Err(InterpreterErr::CastErr("num", "bool", *expr_pos)),
+          Literal::String(_) => return Err(InterpreterErr::CastErr("string", "bool", *expr_pos)),
+          Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable", "bool", *expr_pos)), // should not happen
         };
 
         let last_item = self.exec_program(if res {
@@ -195,7 +196,8 @@ impl<'a> Interpreter {
 
       // string
       (Literal::String(ref s), Literal::String(ref s2), Token::Plus) => Ok(Literal::String(format!("{}{}", s, s2))),
-      (Literal::String(ref s), Literal::Num(ref i), Token::Asterix) => Ok(Literal::String(format!{"{}", s}.repeat(*i as usize))),
+      (Literal::String(ref s), Literal::Num(ref i), Token::Asterix) |
+      (Literal::Num(ref i), Literal::String(ref s), Token::Asterix) => Ok(Literal::String(format!{"{}", s}.repeat(*i as usize))),
 
       // string compare
       (Literal::String(ref s), Literal::String(ref s2), Token::EqualsEquals) => Ok(Literal::Bool(*s == *s2)),

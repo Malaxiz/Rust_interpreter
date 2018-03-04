@@ -26,7 +26,8 @@ pub enum Expression<'a> {
   Binary(Box<Expression<'a>>, (Token, i32), Box<Expression<'a>>),
   Primary(Primary<'a>, i32),
 
-  IfExpr(Box<Expression<'a>>, Vec<Box<Declaration<'a>>>, Vec<Box<Declaration<'a>>>, i32),
+  // expr, body, else_body, expr_pos, pos
+  IfExpr(Box<Expression<'a>>, Vec<Box<Declaration<'a>>>, Vec<Box<Declaration<'a>>>, i32, i32),
   PrintExpr(Box<Expression<'a>>, i32),
 }
 
@@ -144,8 +145,9 @@ impl<'a> Grammar<'a> {
   fn if_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
     let pos = self.get_pos();
 
-    // if statment
+    // if expression
     if let Some(_) = self.do_match(&[If]) {
+      let expr_pos = self.get_pos();
       let expr = self.expression()?;
       if let None = self.do_match(&[BraceOpen]) {
         return Err(ParserErr::ExpectedBraceOpen(self.get_pos()));
@@ -168,7 +170,7 @@ impl<'a> Grammar<'a> {
         }
       }
 
-      return Ok(Expression::IfExpr(Box::new(expr), decls, else_decls, pos));
+      return Ok(Expression::IfExpr(Box::new(expr), decls, else_decls, expr_pos, pos));
     }
 
     self.print_expr()
