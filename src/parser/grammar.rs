@@ -155,7 +155,7 @@ impl<'a> Grammar<'a> {
     if let Some((operator, pos)) = self.do_match(&[While]) {
       let expr_pos = self.get_pos();
       let expr = self.expression()?;
-      let expr = Expression::Binary(Box::new(Expression::Primary(Primary::Literal(&Literal::Bool(true)), expr_pos)), (Token::EqualsEquals, expr_pos), Box::new(expr));
+      // let expr = Expression::Binary(Box::new(Expression::Primary(Primary::Literal(&Literal::Bool(true)), expr_pos)), (Token::EqualsEquals, expr_pos), Box::new(expr));
       if let None = self.do_match(&[BraceOpen]) {
         return Err(ParserErr::ExpectedBraceOpen(pos));
       }

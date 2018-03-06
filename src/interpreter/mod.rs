@@ -115,16 +115,9 @@ impl<'a> Interpreter {
           &Primary::Literal(literal) => Ok(literal.clone())
         }
       },
-      &Expression::IfExpr(ref expr, ref decls, ref else_decls, ref expr_pos, ref pos) => {
+      &Expression::IfExpr(ref expr, ref decls, ref else_decls, ref expr_pos, ref _pos) => {
         let res = self.exec_expr(expr)?;
-
-        let res: bool = match res {
-          Literal::Bool(b) => b,
-          Literal::Nil => false, // temp ?
-          Literal::Num(_) => return Err(InterpreterErr::CastErr("num", "bool", *expr_pos)),
-          Literal::String(_) => return Err(InterpreterErr::CastErr("string", "bool", *expr_pos)),
-          Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable", "bool", *expr_pos)), // should not happen
-        };
+        let res: bool = self.cast_bool(&res, *expr_pos)?;
 
         let last_item = self.exec_program(if res {
           decls
@@ -134,15 +127,12 @@ impl<'a> Interpreter {
 
         Ok(last_item)
       },
-      &Expression::WhileExpr(ref expr, ref decls, ref expr_pos, ref pos) => {
+      &Expression::WhileExpr(ref expr, ref decls, ref expr_pos, ref _pos) => {
         let mut last_item = Literal::Nil;
 
         loop {
           let res = self.exec_expr(expr)?;
-          let res = match res {
-            Literal::Bool(b) => b,
-            _ => return Err(InterpreterErr::TempError)
-          };
+          let res: bool = self.cast_bool(&res, *expr_pos)?;
 
           if !res {
             break;
@@ -166,6 +156,16 @@ impl<'a> Interpreter {
         println!("{}", to_print);
         Ok(res)
       }
+    }
+  }
+
+  fn cast_bool(&self, literal: &Literal, pos: i32) -> Result<bool, InterpreterErr> {
+    match literal {
+      &Literal::Bool(b) => Ok(b),
+      &Literal::Nil => Ok(false), // temp ?
+      &Literal::Num(_) => return Err(InterpreterErr::CastErr("num", "bool", pos)),
+      &Literal::String(_) => return Err(InterpreterErr::CastErr("string", "bool", pos)),
+      &Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable", "bool", pos)), // should not happen
     }
   }
 

@@ -12,6 +12,7 @@ use std::collections::HashMap;
 enum PreLexed<'a> {
   String(&'a str, i32),
   Rest(&'a str, i32),
+  Comment(&'a str)
 }
 
 #[derive(Debug, Clone)]
@@ -32,49 +33,109 @@ pub enum Lexed {
   Identifier(String, i32),
 }
 
-fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
-  let mut pre_lexed: Vec<PreLexed> = Vec::new();
+fn remove_comments(query: &str) -> Result<Vec<PreLexed>, LexErr> {
+  let mut pre_lexed = Vec::new();
 
-  let mut quote_count = 0;
-  let mut in_quote = false;
+  let mut is_comment = false;
+  let mut prev_char;
+  let mut curr_char = ' ';
   let mut start = 0;
-  let mut escaped = false;
 
   for (i, c) in query.chars().enumerate() {
+    prev_char = curr_char;
+    curr_char = c;
+
     match c {
-      '\\' => {
-        escaped = !escaped;
-        continue;
-      },
-      '"' => {
-        if escaped {
-          escaped = false;
+      '/' => {
+        if is_comment {
           continue;
         }
-
-        quote_count += 1;
-        in_quote = !in_quote;
-
-        let s = &query[start..i];
-        pre_lexed.push(if in_quote {
-          PreLexed::Rest(s, start as i32)
-        } else {
-          PreLexed::String(s, start as i32)
-        });
-
-        start = i+1;
+        if prev_char == '/' {
+          is_comment = true;
+          pre_lexed.push(PreLexed::Rest(&query[start..i-1], start as i32));
+          start = i;
+        }
       },
-      _ => {
-        escaped = false;
-      }
+      '\n' => {
+        if is_comment {
+          is_comment = false;
+          pre_lexed.push(PreLexed::Comment(&query[start-1..i]));
+          start = i;
+        }
+      },
+      _ => { }
     }
   }
 
-  if quote_count % 2 != 0 {
-    return Err(LexErr::MismatchedQuotes((start - 1) as i32));
-  }
+  pre_lexed.push(if is_comment {
+    PreLexed::Comment(&query[start-1..query.len()])
+  } else {
+    PreLexed::Rest(&query[start..query.len()], query.len() as i32)
+  });
 
-  pre_lexed.push(PreLexed::Rest(&query[start..query.len()], start as i32));
+  Ok(pre_lexed)
+}
+
+fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
+  let removed_comments = remove_comments(query)?;
+
+  let mut pre_lexed: Vec<PreLexed> = Vec::new();
+
+  let mut comment_offset = 0;
+  let mut rest_offset = 0;
+
+  for (n, t) in removed_comments.iter().enumerate() {
+    match t {
+      &PreLexed::Comment(ref c) => {
+        comment_offset += c.len();
+      },
+      &PreLexed::Rest(ref query, pos) => {
+        let mut quote_count = 0;
+        let mut in_quote = false;
+        let mut start = 0;
+        let mut escaped = false;
+
+        for (i, c) in query.chars().enumerate() {
+          match c {
+            '\\' => {
+              escaped = !escaped;
+              continue;
+            },
+            '"' => {
+              if escaped {
+                escaped = false;
+                continue;
+              }
+
+              quote_count += 1;
+              in_quote = !in_quote;
+
+              let s = &query[start..i];
+              pre_lexed.push(if in_quote {
+                PreLexed::Rest(s, start as i32 + comment_offset as i32 + rest_offset as i32)
+              } else {
+                PreLexed::String(s, start as i32 + comment_offset as i32 + rest_offset as i32)
+              });
+
+              start = i+1;
+            },
+            _ => {
+              escaped = false;
+            }
+          }
+        }
+
+        if quote_count % 2 != 0 {
+          return Err(LexErr::MismatchedQuotes((start - 1) as i32+ comment_offset as i32 + rest_offset as i32));
+        }
+
+        pre_lexed.push(PreLexed::Rest(&query[start..query.len()], start as i32+ comment_offset as i32 + rest_offset as i32));
+
+        rest_offset += query.len() as i32;
+      },
+      _ => {  }
+    }
+  }
 
   Ok(pre_lexed)
 }
@@ -194,6 +255,9 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
   let mut lexed: Vec<Lexed> = Vec::new();
   for i in pre_lexed {
     match i {
+      PreLexed::Comment(_) => {
+
+      },
       PreLexed::Rest(val, pos) => {
         let mut offset = 0;
         let mut r_offset: i32 = -1;

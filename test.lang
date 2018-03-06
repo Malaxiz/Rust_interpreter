@@ -16,9 +16,12 @@ print! b;
 print! u;
 print! a;
 
-print! "hello " + print! "hello " + if false { " there" } else { "you" };
+// multiline
+// comment
+// here
+
+print! "hello " + print! "hello " + if false { " there" } else { "you" }; // this is a comment
 
 print! g;
-
-print! u;
-print! print! (print! print! "hej") * g
+print! u; // hello
+print! print! (print! print! "hej") * 5
