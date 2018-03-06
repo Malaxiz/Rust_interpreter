@@ -219,9 +219,9 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
           if let Some(op) = is_operator(&tokens, trimmed.0) {
             match op {
-              Token::True => lexed.push(Lexed::Literal(Literal::Bool(true), pos)),
-              Token::False => lexed.push(Lexed::Literal(Literal::Bool(false), pos)),
-              Token::Nil => lexed.push(Lexed::Literal(Literal::Nil, pos)),
+              Token::True => lexed.push(Lexed::Literal(Literal::Bool(true), apos)),
+              Token::False => lexed.push(Lexed::Literal(Literal::Bool(false), apos)),
+              Token::Nil => lexed.push(Lexed::Literal(Literal::Nil, apos)),
               _ => lexed.push(Lexed::Operator(op, apos))
             }
           } else if is_identifier(trimmed.0) {

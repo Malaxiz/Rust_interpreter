@@ -2,11 +2,12 @@ use parser::ParserErr;
 
 use lexer;
 use lexer::Lexed;
+use lexer::Literal;
 use lexer::Token;
 use lexer::Token::*;
 
 // not used
-pub struct Program<'a>(Vec<Box<Declaration<'a>>>);
+// type Program<'a> = Vec<Box<Declaration<'a>>>;
 
 #[derive(Debug)]
 pub enum Declaration<'a> {
@@ -28,6 +29,10 @@ pub enum Expression<'a> {
 
   // expr, body, else_body, expr_pos, pos
   IfExpr(Box<Expression<'a>>, Vec<Box<Declaration<'a>>>, Vec<Box<Declaration<'a>>>, i32, i32),
+
+  // expr, body, expr_pos, pos
+  WhileExpr(Box<Expression<'a>>, Vec<Box<Declaration<'a>>>, i32, i32),
+
   PrintExpr(Box<Expression<'a>>, i32),
 }
 
@@ -121,13 +126,6 @@ impl<'a> Grammar<'a> {
 
   pub fn expression(&mut self) -> Result<Expression<'a>, ParserErr> {
     let res = self.assign()?;
-
-    // if let Some(_) = self.do_match(&[SemiColon]) {
-
-    // } else {
-
-    // }
-
     Ok(res)
   }
 
@@ -146,6 +144,29 @@ impl<'a> Grammar<'a> {
     if let Some((operator, pos)) = self.do_match(&[Print]) {
       let expr = self.expression()?;
       return Ok(Expression::PrintExpr(Box::new(expr), pos));
+    }
+
+    self.while_expr()
+  }
+
+  fn while_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
+    let pos = self.get_pos();
+
+    if let Some((operator, pos)) = self.do_match(&[While]) {
+      let expr_pos = self.get_pos();
+      let expr = self.expression()?;
+      let expr = Expression::Binary(Box::new(Expression::Primary(Primary::Literal(&Literal::Bool(true)), expr_pos)), (Token::EqualsEquals, expr_pos), Box::new(expr));
+      if let None = self.do_match(&[BraceOpen]) {
+        return Err(ParserErr::ExpectedBraceOpen(pos));
+      }
+
+      let mut decls: Vec<Box<Declaration>> = vec![];
+
+      while let None = self.do_match(&[BraceClose]) {
+        decls.push(Box::new(self.declaration()?));
+      }
+
+      return Ok(Expression::WhileExpr(Box::new(expr), decls, expr_pos, pos));
     }
 
     self.if_expr()

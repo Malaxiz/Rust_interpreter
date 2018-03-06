@@ -3,7 +3,7 @@
 pub mod info;
 pub mod grammar;
 
-pub use self::grammar::Program;
+// pub use self::grammar::Program;
 pub use self::grammar::Declaration;
 pub use self::grammar::Statement;
 pub use self::grammar::Expression;
@@ -27,7 +27,8 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
     Minus,
     EOF,
     Print,
-    If
+    If,
+    While
   ];
 
   let mut i = 0;
@@ -38,7 +39,6 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
     match t {
       &Lexed::Literal(ref _literal, pos) => {
         if !allowed_literal {
-          println!("not allowed: {:?}", _literal);
           return Err(ParserErr::UnexpectedLiteral(pos));
         } else {
 
@@ -92,19 +92,24 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              ParOpen, Minus, Bang, If, Print
+              ParOpen, Minus, Bang, Print,
+              While, If
             ];
           },
           Plus | Minus | Asterix | Slash | Bang | DoubleAsterix => {
             allowed_literal = true;
             allowed_identifier = true;
             allowed_operators = vec![
-              ParOpen, Minus, Bang, If, Print
+              ParOpen, Minus, Bang, Print,
+              While, If
             ];
           },
           EqualsEquals | BangEquals | LtOrEquals | GtOrEquals | Gt | Lt => {
             allowed_literal = true;
             allowed_identifier = true;
+            allowed_operators = vec![
+              If, While
+            ];
           }
           Dot => {
             allowed_identifier = true;
@@ -113,7 +118,8 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              ParClose, ParOpen, If
+              ParClose, ParOpen, Print,
+              If, While
             ];
           },
           ParClose => {
@@ -125,7 +131,8 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              ParOpen, EOF, BraceClose, If,
+              ParOpen, EOF, BraceClose,
+              If, While,
               Print
             ];
           },
@@ -133,7 +140,8 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              Minus, Bang, ParOpen, If
+              Minus, Bang, ParOpen, Print,
+              If, While
             ];
           },
           If => {
@@ -148,11 +156,19 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
               BraceOpen
             ];
           },
+          While => {
+            allowed_identifier = true;
+            allowed_literal = true;
+            allowed_operators = vec![
+              Minus, Bang, ParOpen
+            ];
+          },
           BraceOpen => {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              Minus, Bang, ParOpen, Print, If, BraceClose
+              Minus, Bang, ParOpen, Print, BraceClose,
+              If, While
             ];
           },
           BraceClose => {

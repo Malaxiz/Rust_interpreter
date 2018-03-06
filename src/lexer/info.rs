@@ -51,6 +51,7 @@ pub enum Token {
   // keywords
   If,
   Else,
+  While,
   True,
   False,
   Nil,
@@ -96,6 +97,7 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "\n" => LineBreak,
 
     "if" => If,
+    "while" => While,
     "else" => Else,
     "true" => True,
     "false" => False,

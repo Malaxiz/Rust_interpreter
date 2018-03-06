@@ -102,7 +102,7 @@ fn parser_err(err: &ParserErr, query: &str) {
     &ParserErr::ExpectedBraceOpen(pos) => {
       title = "Parser error: ExpectedBraceOpen";
       err_pos = pos;
-      description = format!("expected open brace for if expression");
+      description = format!("expected open brace for this expression");
     },
     &ParserErr::MismatchedParenthesis(pos) => {
       title = "Parser error: MismatchedParenthesis";

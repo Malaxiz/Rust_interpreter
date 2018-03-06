@@ -1,4 +1,4 @@
-use parser::Program;
+// use parser::Program;
 use parser::Declaration;
 use parser::Statement;
 use parser::Expression;
@@ -131,6 +131,25 @@ impl<'a> Interpreter {
         } else {
           else_decls
         })?;
+
+        Ok(last_item)
+      },
+      &Expression::WhileExpr(ref expr, ref decls, ref expr_pos, ref pos) => {
+        let mut last_item = Literal::Nil;
+
+        loop {
+          let res = self.exec_expr(expr)?;
+          let res = match res {
+            Literal::Bool(b) => b,
+            _ => return Err(InterpreterErr::TempError)
+          };
+
+          if !res {
+            break;
+          }
+
+          last_item = self.exec_program(decls)?;
+        }
 
         Ok(last_item)
       },

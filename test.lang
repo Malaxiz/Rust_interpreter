@@ -1,11 +1,15 @@
 a = 5;
 
-b = if a == 5 {
+g = (b = if a == 5 {
   u = 1;
 
   if (5*"a" == "aaaaa") {
-    u
+    u + 5
   }
+});
+
+if true {
+  print! "hello"
 };
 
 print! b;
@@ -14,3 +18,7 @@ print! a;
 
 print! "hello " + print! "hello " + if false { " there" } else { "you" };
 
+print! g;
+
+print! u;
+print! print! (print! print! "hej") * g

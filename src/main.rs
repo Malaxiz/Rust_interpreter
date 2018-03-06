@@ -24,7 +24,7 @@ fn main() {
 
   loop {
     print!("> ");
-    io::stdout().flush();
+    io::stdout().flush().unwrap();
 
     let mut query = String::new();
     io::stdin().read_line(&mut query)
