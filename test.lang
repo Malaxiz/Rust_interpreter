@@ -1,27 +1,33 @@
-a = 5;
+// types
+number = 5;
+string = "Hello there";
+bool = true == false;
+no_value = nil;
 
-g = (b = if a == 5 {
-  u = 1;
+// expressions
 
-  if (5*"a" == "aaaaa") {
-    u + 5
-  }
-});
+assign_expression = assigned = "a_value";
 
-if true {
-  print! "hello"
+print!("assign_expression = " + assign_expression);
+
+print_value = print! "Hello there";
+
+print!("print_value = " + print_value);
+
+if_value = if 5 > 4 {
+  "5 is greater than 4"
+} else {
+  "5 is not greater than 4"
 };
 
-print! b;
-print! u;
-print! a;
+print!("if_value = " + if_value);
 
-// multiline
-// comment
-// here
+i = 0;
+while_value = while i < 10 {
+  i = i + 1;
+  i
+};
 
-print! "hello " + print! "hello " + if false { " there" } else { "you" }; // this is a comment
+print!("i = ");
+print!(i);
 
-print! g;
-print! u; // hello
-print! print! (print! print! "hej") * 5

@@ -219,12 +219,16 @@ fn trim<'a>(val: &'a str) -> (&'a str, i32, i32) {
     return (val, 0, 0);
   }
 
+  // if val.len() == 1 && val.chars().next() == Some(' ') {
+  //   return (val, 0, 0);
+  // }
+
   let mut start: i32 = 0;
   let mut end: i32 = val.len() as i32 - 1;
 
   for (k, v) in val.chars().enumerate() {
     match v {
-      ' ' => {}
+      ' ' | '\t' => {}
       _ => {
         start = k as i32;
         break;
@@ -234,7 +238,7 @@ fn trim<'a>(val: &'a str) -> (&'a str, i32, i32) {
 
   for (k, v) in val.chars().rev().enumerate() {
     match v {
-      ' ' => {}
+      ' ' | '\t' => {}
       _ => {
         end -= k as i32 - 1;
         break;
@@ -292,7 +296,8 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
             lexed.push(Lexed::Identifier(String::from(trimmed.0), apos));
           } else if is_number(trimmed.0) {
             lexed.push(Lexed::Literal(Literal::Num(trimmed.0.parse::<f64>().unwrap()), apos));
-          } else if trimmed.0.len() <= 1 {
+          } else if trimmed.0.len() < 1 {
+            print!("trimmed: {:?}", trimmed);
             return Err(LexErr::UnknownToken(apos, trimmed.0));
           } else {
             continue;
@@ -311,7 +316,8 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
   // remove linebreaks
   lexed.retain(|&ref i| match i {
     &Lexed::Operator(op, _) => {
-      op != Token::LineBreak
+      op != Token::LineBreak &&
+      op != Token::Tab
     }
     _ => true
   });
