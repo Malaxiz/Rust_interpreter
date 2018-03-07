@@ -78,7 +78,7 @@ fn lexer_err(err: &LexErr, query: &str) {
 fn parser_err(err: &ParserErr, query: &str) {
   let mut title = "";
   let mut err_pos = -1;
-  let mut width = 0;
+  let mut width = 1;
   let mut description = String::from("");
 
   match err {
@@ -129,7 +129,7 @@ fn parser_err(err: &ParserErr, query: &str) {
 fn interpreter_err(err: &InterpreterErr, query: &str) {
   let mut title = "";
   let mut err_pos = -1;
-  let mut width = 0;
+  let mut width = 1;
   let mut description = String::from("");
 
   match err {
