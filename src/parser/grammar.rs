@@ -281,13 +281,21 @@ impl<'a> Grammar<'a> {
     }
 
     let matched = self.do_match(&[Token::ParOpen]);
-    if let Some((operator, pos)) = matched {
+    if let Some((_, pos)) = matched {
       let expr = self.expression();
-      if let None = self.do_match(&[Token::ParClose]) {
+      if let Some(_) = self.do_match(&[Token::ParClose]) {
+        return expr;
+      } else {
         return Err(ParserErr::MismatchedParenthesis(pos));
       }
-      return expr;
     }
+
+    if let Some((_, pos)) = self.do_match(&[Token::ParClose]) {
+      self.current -= 1;
+      return Ok(Expression::Primary(Primary::Literal(&Literal::Nil), pos));
+    }
+
+    println!("{:?}", self.lexed[self.current]);
 
     // last effort
     let expr = self.expression()?;
