@@ -6,9 +6,9 @@ no_value = nil;
 
 // expressions
 
-assign_expression = assigned = "a_value";
+assign_expression = assigned = "A \t value";
 
-print!("assign_expression = " + assign_expression);
+print!("assign_expression = \"" + assign_expression + "\"");
 
 print_value = print! "Hello there";
 

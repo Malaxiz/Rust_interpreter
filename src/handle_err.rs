@@ -5,7 +5,7 @@ use lexer::LexErr;
 use parser::ParserErr;
 use interpreter::InterpreterErr;
 
-fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
+fn print_err(title: &str, err_pos: i32, width: i32, description: &str, query: &str) {
   let query_vec: Vec<&str> = query.split('\n').collect();
 
   let mut line = 0;
@@ -31,7 +31,7 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
   if err_pos >= 0 {
     let mut offset = String::from("");
     for _i in 0..err_pos { offset.push('-') }
-    println!("| {}{}", ansi_term::Color::Red.bold().paint(offset), ansi_term::Color::Red.bold().paint("^"));
+    println!("| {}{}", ansi_term::Color::Red.bold().paint(offset), ansi_term::Color::Red.bold().paint("^".repeat(width as usize)));
   }
 
   if description != "" {
@@ -46,6 +46,7 @@ fn print_err(title: &str, err_pos: i32, description: &str, query: &str) {
 fn lexer_err(err: &LexErr, query: &str) {
   let mut title = "";
   let mut err_pos = -1; // if -1 then not valid
+  let mut width = 1;
   let mut description = String::from("");
 
   match err {
@@ -54,23 +55,30 @@ fn lexer_err(err: &LexErr, query: &str) {
       err_pos = pos;
       description = String::from("mismatched quote");
     },
-    &LexErr::UnknownToken(pos, token) => {
+    &LexErr::UnknownToken(token, pos) => {
       title = "Lexer error: UnknownToken";
       err_pos = pos;
       description = format!("unknown token \"{}\"", token);
     },
+    &LexErr::UnknownEscapeSequence(c, pos) => {
+      title = "Lexer error: UnknownEscapeSequence";
+      err_pos = pos - 1;
+      width = 2;
+      description = format!("unknown escape sequence: \"{}\"", c);
+    }
     _ => {
       title = "Lexer error!";
       description = format!("{:?}", err);
     }
   }
 
-  print_err(title, err_pos, &description, query);
+  print_err(title, err_pos, width, &description, query);
 }
 
 fn parser_err(err: &ParserErr, query: &str) {
   let mut title = "";
   let mut err_pos = -1;
+  let mut width = 0;
   let mut description = String::from("");
 
   match err {
@@ -115,12 +123,13 @@ fn parser_err(err: &ParserErr, query: &str) {
     }
   }
 
-  print_err(title, err_pos, &description, query);
+  print_err(title, err_pos, width, &description, query);
 }
 
 fn interpreter_err(err: &InterpreterErr, query: &str) {
   let mut title = "";
   let mut err_pos = -1;
+  let mut width = 0;
   let mut description = String::from("");
 
   match err {
@@ -145,7 +154,7 @@ fn interpreter_err(err: &InterpreterErr, query: &str) {
     }
   }
 
-  print_err(title, err_pos, &description, query);
+  print_err(title, err_pos, width, &description, query);
 }
 
 pub fn handle_err(err: &LangErr, query: &str) {

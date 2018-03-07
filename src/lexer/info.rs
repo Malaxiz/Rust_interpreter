@@ -15,7 +15,8 @@ macro_rules! map(
 #[derive(Debug)]
 pub enum LexErr<'a> {
   MismatchedQuotes(i32),
-  UnknownToken(i32, &'a str),
+  UnknownToken(&'a str, i32),
+  UnknownEscapeSequence(char, i32)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

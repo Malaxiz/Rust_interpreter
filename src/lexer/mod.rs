@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 enum PreLexed<'a> {
-  String(&'a str, i32),
+  String(String, i32),
   Rest(&'a str, i32),
   Comment(&'a str)
 }
@@ -76,6 +76,41 @@ fn remove_comments(query: &str) -> Result<Vec<PreLexed>, LexErr> {
   Ok(pre_lexed)
 }
 
+fn resolve_escapes<'a>(query: &str, pos: i32) -> Result<String, LexErr> {
+  let mut s = String::from("");
+
+  fn get_seq<'a>(c: char, pos: i32) -> Result<char, LexErr<'a>> {
+    Ok(match c {
+      'n' => '\n',
+      _ => return Err(LexErr::UnknownEscapeSequence(c, pos))
+    })
+  }
+
+  let mut in_escape = false;
+
+  for (k, v) in query.chars().enumerate() {
+    match v {
+      '\\' => {
+        if in_escape {
+          s.push(v);
+        }
+
+        in_escape = !in_escape;
+      }
+      _ => {
+        s.push(if in_escape {
+          in_escape = false;
+          get_seq(v, pos + k as i32)?
+        } else {
+          v
+        });
+      }
+    }
+  }
+
+  Ok(s)
+}
+
 fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
   let removed_comments = remove_comments(query)?;
 
@@ -111,10 +146,11 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
               in_quote = !in_quote;
 
               let s = &query[start..i];
+              let apos = start as i32 + comment_offset as i32 + rest_offset as i32;
               pre_lexed.push(if in_quote {
-                PreLexed::Rest(s, start as i32 + comment_offset as i32 + rest_offset as i32)
+                PreLexed::Rest(s, apos)
               } else {
-                PreLexed::String(s, start as i32 + comment_offset as i32 + rest_offset as i32)
+                PreLexed::String(resolve_escapes(s, apos)?, apos)
               });
 
               start = i+1;
@@ -126,10 +162,10 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
         }
 
         if quote_count % 2 != 0 {
-          return Err(LexErr::MismatchedQuotes((start - 1) as i32+ comment_offset as i32 + rest_offset as i32));
+          return Err(LexErr::MismatchedQuotes((start - 1) as i32 + comment_offset as i32 + rest_offset as i32));
         }
 
-        pre_lexed.push(PreLexed::Rest(&query[start..query.len()], start as i32+ comment_offset as i32 + rest_offset as i32));
+        pre_lexed.push(PreLexed::Rest(&query[start..query.len()], start as i32 + comment_offset as i32 + rest_offset as i32));
 
         rest_offset += query.len() as i32;
       },
@@ -263,6 +299,8 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
       },
       PreLexed::Rest(val, pos) => {
+        let val = trim(val).0;
+
         let mut offset = 0;
         let mut r_offset: i32 = -1;
         let len = val.len();
@@ -296,9 +334,8 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
             lexed.push(Lexed::Identifier(String::from(trimmed.0), apos));
           } else if is_number(trimmed.0) {
             lexed.push(Lexed::Literal(Literal::Num(trimmed.0.parse::<f64>().unwrap()), apos));
-          } else if trimmed.0.len() < 1 {
-            print!("trimmed: {:?}", trimmed);
-            return Err(LexErr::UnknownToken(apos, trimmed.0));
+          } else if trimmed.0.len() <= 1 {
+            return Err(LexErr::UnknownToken(trimmed.0, apos));
           } else {
             continue;
           }
