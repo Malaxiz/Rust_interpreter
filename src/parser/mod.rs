@@ -192,8 +192,8 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
   Ok(())
 }
 
-pub fn parse(lexed: &Vec<Lexed>) -> Result<Vec<Box<Declaration>>, ParserErr> {
-  check(lexed)?;
+pub fn parse(lexed: Vec<Lexed>) -> Result<Vec<Box<Declaration>>, ParserErr> {
+  check(&lexed)?;
   
   let mut g = grammar::Grammar::new(lexed);
   let program = g.program()?;

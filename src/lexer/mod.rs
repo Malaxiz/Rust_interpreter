@@ -82,6 +82,8 @@ fn resolve_escapes<'a>(query: &str, pos: i32) -> Result<String, LexErr> {
   fn get_seq<'a>(c: char, pos: i32) -> Result<char, LexErr<'a>> {
     Ok(match c {
       'n' => '\n',
+      't' => '\t',
+      '"' => '\"',
       _ => return Err(LexErr::UnknownEscapeSequence(c, pos))
     })
   }

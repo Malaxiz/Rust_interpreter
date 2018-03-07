@@ -10,49 +10,49 @@ use lexer::Token::*;
 // type Program<'a> = Vec<Box<Declaration<'a>>>;
 
 #[derive(Debug)]
-pub enum Declaration<'a> {
-  Statement(Box<Statement<'a>>, i32),
+pub enum Declaration {
+  Statement(Box<Statement>, i32),
   // FunctionDecl(Box<FunctionDecl>, i32),
 }
 
 #[derive(Debug)]
-pub enum Statement<'a> {
+pub enum Statement {
   // expression, is statement (semicolon), pos
-  ExpressionStmt(Box<Expression<'a>>, bool, i32),
+  ExpressionStmt(Box<Expression>, bool, i32),
   // BlockStmt(Vec<Box<Declaration<'a>>>, i32),
 }
 
 #[derive(Debug)]
-pub enum Expression<'a> {
-  Binary(Box<Expression<'a>>, (Token, i32), Box<Expression<'a>>),
-  Primary(Primary<'a>, i32),
+pub enum Expression {
+  Binary(Box<Expression>, (Token, i32), Box<Expression>),
+  Primary(Primary, i32),
 
   // expr, body, else_body, expr_pos, pos
-  IfExpr(Box<Expression<'a>>, Vec<Box<Declaration<'a>>>, Vec<Box<Declaration<'a>>>, i32, i32),
+  IfExpr(Box<Expression>, Vec<Box<Declaration>>, Vec<Box<Declaration>>, i32, i32),
 
   // expr, body, expr_pos, pos
-  WhileExpr(Box<Expression<'a>>, Vec<Box<Declaration<'a>>>, i32, i32),
+  WhileExpr(Box<Expression>, Vec<Box<Declaration>>, i32, i32),
 
-  PrintExpr(Box<Expression<'a>>, i32),
+  PrintExpr(Box<Expression>, i32),
 }
 
 #[derive(Debug, Clone)]
-pub enum Primary<'a> {
-  Literal(&'a lexer::Literal),
-  Identifier(&'a str)
+pub enum Primary {
+  Literal(lexer::Literal),
+  Identifier(String)
 }
 
 // pub enum FunctionDecl {
 //   Block()
 // }
 
-pub struct Grammar<'a> {
-  lexed: &'a Vec<Lexed>,
+pub struct Grammar {
+  lexed: Vec<Lexed>,
   current: usize,
 }
 
-impl<'a> Grammar<'a> {
-  pub fn new(lexed: &'a Vec<Lexed>) -> Self {
+impl<'a> Grammar {
+  pub fn new(lexed: Vec<Lexed>) -> Self {
     Grammar {
       lexed,
       current: 0,
@@ -94,7 +94,7 @@ impl<'a> Grammar<'a> {
     }
   }
 
-  pub fn program(&mut self) -> Result<Vec<Box<Declaration<'a>>>, ParserErr> {
+  pub fn program(&mut self) -> Result<Vec<Box<Declaration>>, ParserErr> {
     let mut declarations: Vec<Box<Declaration>> = vec![];
     while self.current < self.lexed.len() - 1 {
       declarations.push(Box::new(self.declaration()?));
@@ -105,13 +105,13 @@ impl<'a> Grammar<'a> {
     )
   }
 
-  fn declaration(&mut self) -> Result<Declaration<'a>, ParserErr> {
+  fn declaration(&mut self) -> Result<Declaration, ParserErr> {
     let pos = self.get_pos();
     let stmt = self.statement()?;
     Ok(Declaration::Statement(Box::new(stmt), pos))
   }
 
-  fn statement(&mut self) -> Result<Statement<'a>, ParserErr> {
+  fn statement(&mut self) -> Result<Statement, ParserErr> {
     let pos = self.get_pos();
 
     // expression statement
@@ -124,12 +124,12 @@ impl<'a> Grammar<'a> {
     }
   }
 
-  pub fn expression(&mut self) -> Result<Expression<'a>, ParserErr> {
+  pub fn expression(&mut self) -> Result<Expression, ParserErr> {
     let res = self.assign()?;
     Ok(res)
   }
 
-  fn assign(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn assign(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.print_expr()?;
 
     while let Some((operator, pos)) = self.do_match(&[Equals]) {
@@ -140,7 +140,7 @@ impl<'a> Grammar<'a> {
     Ok(expr)
   }
 
-  fn print_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn print_expr(&mut self) -> Result<Expression, ParserErr> {
     if let Some((operator, pos)) = self.do_match(&[Print]) {
       let expr = self.expression()?;
       return Ok(Expression::PrintExpr(Box::new(expr), pos));
@@ -149,7 +149,7 @@ impl<'a> Grammar<'a> {
     self.while_expr()
   }
 
-  fn while_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn while_expr(&mut self) -> Result<Expression, ParserErr> {
     let pos = self.get_pos();
 
     if let Some((operator, pos)) = self.do_match(&[While]) {
@@ -172,7 +172,7 @@ impl<'a> Grammar<'a> {
     self.if_expr()
   }
 
-  fn if_expr(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn if_expr(&mut self) -> Result<Expression, ParserErr> {
     let pos = self.get_pos();
 
     // if expression
@@ -206,7 +206,7 @@ impl<'a> Grammar<'a> {
     self.equality()
   }
 
-  fn equality(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn equality(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.comparison()?;
 
     while let Some((operator, pos)) = self.do_match(&[EqualsEquals, BangEquals]) {
@@ -217,7 +217,7 @@ impl<'a> Grammar<'a> {
     Ok(expr)
   }
 
-  fn comparison(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn comparison(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.addition()?;
 
     while let Some((operator, pos)) = self.do_match(&[Gt, Lt, GtOrEquals, LtOrEquals]) {
@@ -228,7 +228,7 @@ impl<'a> Grammar<'a> {
     Ok(expr)
   }
 
-  fn addition(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn addition(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.multiplication()?;
 
     while let Some((operator, pos)) = self.do_match(&[Plus, Minus]) {
@@ -239,7 +239,7 @@ impl<'a> Grammar<'a> {
     Ok(expr)
   }
 
-  fn multiplication(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn multiplication(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.raise()?;
 
     while let Some((operator, pos)) = self.do_match(&[Asterix, Slash]) {
@@ -250,7 +250,7 @@ impl<'a> Grammar<'a> {
     Ok(expr)
   }
 
-  fn raise(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn raise(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.unary()?;
 
     while let Some((operator, pos)) = self.do_match(&[DoubleAsterix]) {
@@ -261,21 +261,21 @@ impl<'a> Grammar<'a> {
     Ok(expr)
   }
 
-  fn unary(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn unary(&mut self) -> Result<Expression, ParserErr> {
     if let Some((operator, pos)) = self.do_match(&[Bang, Minus]) {
       let right = self.unary()?;
-      return Ok(Expression::Binary(Box::new(Expression::Primary(Primary::Literal(&lexer::Literal::Num(0 as f64)), pos)), (operator, pos), Box::new(right)));
+      return Ok(Expression::Binary(Box::new(Expression::Primary(Primary::Literal(lexer::Literal::Num(0 as f64)), pos)), (operator, pos), Box::new(right)));
     }
 
     Ok(self.primary()?)
   }
 
-  fn primary(&mut self) -> Result<Expression<'a>, ParserErr> {
+  fn primary(&mut self) -> Result<Expression, ParserErr> {
     let matched = self.do_match(&[Token::Literal, Token::Identifier]);
     if let Some(_) = matched {
       match &self.lexed[self.current - 1] {
-        &Lexed::Literal(ref literal, pos) => return Ok(Expression::Primary(Primary::Literal(literal), pos)),
-        &Lexed::Identifier(ref identifier, pos) => return Ok(Expression::Primary(Primary::Identifier(identifier), pos)),
+        &Lexed::Literal(ref literal, pos) => return Ok(Expression::Primary(Primary::Literal(literal.clone()), pos)),
+        &Lexed::Identifier(ref identifier, pos) => return Ok(Expression::Primary(Primary::Identifier(identifier.clone()), pos)),
         _ => return Err(ParserErr::GrammarError(0))
       };
     }
@@ -292,7 +292,7 @@ impl<'a> Grammar<'a> {
 
     if let Some((_, pos)) = self.do_match(&[Token::ParClose]) {
       self.current -= 1;
-      return Ok(Expression::Primary(Primary::Literal(&Literal::Nil), pos));
+      return Ok(Expression::Primary(Primary::Literal(Literal::Nil), pos));
     }
 
     println!("{:?}", self.lexed[self.current]);

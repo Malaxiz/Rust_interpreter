@@ -7,18 +7,20 @@ use lexer::Literal;
 use lexer::Token;
 
 use std::collections::HashMap;
+use std::rc::Rc;
+use std::cell::RefCell;
 
-macro_rules! map(
-  { $($key:expr => $value:expr),+ } => {
-    {
-      let mut m = ::std::collections::HashMap::new();
-        $(
-          m.insert(String::from($key), $value);
-        )+
-      m
-    }
-  };
-);
+// macro_rules! map(
+//   { $($key:expr => $value:expr),+ } => {
+//     {
+//       let mut m = ::std::collections::HashMap::new();
+//         $(
+//           m.insert(String::from($key), $value);
+//         )+
+//       m
+//     }
+//   };
+// );
 
 #[derive(Debug)]
 pub enum InterpreterErr {
@@ -28,20 +30,42 @@ pub enum InterpreterErr {
   CastErr(&'static str, &'static str, i32),
 }
 
-pub struct Interpreter {
-  variables: HashMap<String, Literal>
+pub struct Root {
+  variables: HashMap<String, Literal>,
+  interpreters: Vec<Box<Interpreter>>
 }
 
-impl<'a> Interpreter {
+impl Root {
   pub fn new() -> Self {
-    Interpreter {
-      variables: map![
-        "dab" => Literal::String(String::from("yayayaya"))
-      ]
+    Self {
+      variables: HashMap::new(),
+      interpreters: Vec::new()
+    }
+  }
+}
+
+pub struct Interpreter {
+  variables: HashMap<String, Literal>,
+  parent: Option<Box<Interpreter>>,
+  root: Box<Root>
+}
+
+impl Interpreter {
+  pub fn new(parent: Option<Box<Interpreter>>, root: Option<Box<Root>>) -> Self {
+    let root_obj = if let Some(val) = root {
+      val
+    } else {
+      Box::new(Root::new())
+    };
+
+    Self {
+      variables: HashMap::new(),
+      root: root_obj,
+      parent
     }
   }
 
-  pub fn exec_program(&mut self, program: &Vec<Box<Declaration<'a>>>) -> Result<Literal, InterpreterErr> {
+  pub fn exec_program(&mut self, program: &Vec<Box<Declaration>>) -> Result<Literal, InterpreterErr> {
     let mut last_res: Literal = Literal::Nil;
 
     for i in program {
@@ -72,7 +96,7 @@ impl<'a> Interpreter {
     }
   }
 
-  fn exec_expr(&mut self, expression: &Expression<'a>) -> Result<Literal, InterpreterErr> {
+  fn exec_expr(&mut self, expression: &Expression) -> Result<Literal, InterpreterErr> {
     let res = self.exec_binary(expression)?;
     let res = match res {
       Literal::Variable(ref name) => {
@@ -93,7 +117,7 @@ impl<'a> Interpreter {
     Ok(res)
   }
 
-  fn exec_binary(&mut self, expression: &Expression<'a>) -> Result<Literal, InterpreterErr> {
+  fn exec_binary(&mut self, expression: &Expression) -> Result<Literal, InterpreterErr> {
     match expression {
       &Expression::Binary(ref left, ref token, ref right) => {
         let left_pos = match **left {
@@ -111,8 +135,8 @@ impl<'a> Interpreter {
       },
       &Expression::Primary(ref literal, _pos) => {
         match literal {
-          &Primary::Identifier(identifier) => Ok(Literal::Variable(String::from(identifier))),
-          &Primary::Literal(literal) => Ok(literal.clone())
+          &Primary::Identifier(ref identifier) => Ok(Literal::Variable(identifier.clone())),
+          &Primary::Literal(ref literal) => Ok(literal.clone())
         }
       },
       &Expression::IfExpr(ref expr, ref decls, ref else_decls, ref expr_pos, ref _pos) => {
@@ -222,6 +246,8 @@ impl<'a> Interpreter {
       (Literal::String(ref s), Literal::String(ref s2), Token::Plus) => Ok(Literal::String(format!("{}{}", s, s2))),
       (Literal::String(ref s), Literal::Num(ref i), Token::Asterix) |
       (Literal::Num(ref i), Literal::String(ref s), Token::Asterix) => Ok(Literal::String(format!{"{}", s}.repeat(*i as usize))),
+      (Literal::Num(ref i), Literal::String(ref s), Token::Plus) => Ok(Literal::String(format!{"{}{}", i, s})),
+      (Literal::String(ref s), Literal::Num(ref i), Token::Plus) => Ok(Literal::String(format!{"{}{}", s, i})),
 
       // string compare
       (Literal::String(ref s), Literal::String(ref s2), Token::EqualsEquals) => Ok(Literal::Bool(*s == *s2)),

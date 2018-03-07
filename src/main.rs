@@ -11,7 +11,7 @@ use lang::interpreter::Interpreter;
 
 fn main() {
 
-  let mut interpreter = Interpreter::new();
+  let mut interpreter = Interpreter::new(None, None);
 
   let mut f = File::open("test.lang")
     .expect("file not found");

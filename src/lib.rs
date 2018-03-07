@@ -21,7 +21,7 @@ fn do_exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<Strin
   };
   // println!("{:?}", lexed);
 
-  let parsed = match parser::parse(&lexed) {
+  let parsed = match parser::parse(lexed) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::ParserErr(err))
   };
