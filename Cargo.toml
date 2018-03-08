@@ -5,3 +5,4 @@ authors = ["didrik-mac <malaxiz.main@gmail.com>"]
 
 [dependencies]
 ansi_term = "0.11.0"
+owning_ref = "0.3.3"

@@ -25,8 +25,14 @@ print!("if_value = " + if_value);
 i = 0;
 while_value = while i < 10 {
   i = i + 1;
+  scoped_value = "This will disappear as this scope closes!";
   i
 };
 
 print!("i = " + i);
 
+//i = 0;
+//while i < 100000 {
+//  i = i + 1;
+//  print! i;
+//}

@@ -1,3 +1,7 @@
+extern crate owning_ref;
+
+use self::owning_ref::BoxRef;
+
 // use parser::Program;
 use parser::Declaration;
 use parser::Statement;
@@ -8,7 +12,6 @@ use lexer::Token;
 
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 // macro_rules! map(
 //   { $($key:expr => $value:expr),+ } => {
@@ -30,37 +33,37 @@ pub enum InterpreterErr {
   CastErr(&'static str, &'static str, i32),
 }
 
-pub struct Root {
-  variables: HashMap<String, Literal>,
-  interpreters: Vec<Box<Interpreter>>
-}
+// pub struct Root {
+//   variables: HashMap<String, Literal>,
+//   interpreters: Vec<Box<Interpreter>>
+// }
 
-impl Root {
-  pub fn new() -> Self {
-    Self {
-      variables: HashMap::new(),
-      interpreters: Vec::new()
-    }
-  }
-}
+// impl Root {
+//   pub fn new() -> Self {
+//     Self {
+//       variables: HashMap::new(),
+//       interpreters: Vec::new()
+//     }
+//   }
+// }
 
 pub struct Interpreter {
   variables: HashMap<String, Literal>,
-  parent: Option<Box<Interpreter>>,
-  root: Box<Root>
+  parent: Option<*mut Interpreter>,
+  // root: Box<Root>
 }
 
 impl Interpreter {
-  pub fn new(parent: Option<Box<Interpreter>>, root: Option<Box<Root>>) -> Self {
-    let root_obj = if let Some(val) = root {
-      val
-    } else {
-      Box::new(Root::new())
-    };
+  pub fn new(parent: Option<*mut Interpreter>) -> Self {
+    // let root_obj = if let Some(val) = root {
+    //   val
+    // } else {
+    //   Box::new(Root::new())
+    // };
 
     Self {
       variables: HashMap::new(),
-      root: root_obj,
+      // root: root_obj,
       parent
     }
   }
@@ -100,7 +103,7 @@ impl Interpreter {
     let res = self.exec_binary(expression)?;
     let res = match res {
       Literal::Variable(ref name) => {
-        if let Some(val) = self.variables.get(name as &str) {
+        if let Some(val) = self.get_variable(name as &str) {
           val.clone()
         } else {
           let pos = match expression {
@@ -142,8 +145,9 @@ impl Interpreter {
       &Expression::IfExpr(ref expr, ref decls, ref else_decls, ref expr_pos, ref _pos) => {
         let res = self.exec_expr(expr)?;
         let res: bool = self.cast_bool(&res, *expr_pos)?;
+        let mut scope = self.get_scope();
 
-        let last_item = self.exec_program(if res {
+        let last_item = scope.exec_program(if res {
           decls
         } else {
           else_decls
@@ -153,6 +157,7 @@ impl Interpreter {
       },
       &Expression::WhileExpr(ref expr, ref decls, ref expr_pos, ref _pos) => {
         let mut last_item = Literal::Nil;
+        let mut scope = self.get_scope();
 
         loop {
           let res = self.exec_expr(expr)?;
@@ -162,7 +167,7 @@ impl Interpreter {
             break;
           }
 
-          last_item = self.exec_program(decls)?;
+          last_item = scope.exec_program(decls)?;
         }
 
         Ok(last_item)
@@ -180,6 +185,43 @@ impl Interpreter {
         println!("{}", to_print);
         Ok(res)
       }
+    }
+  }
+
+  fn get_scope(&mut self) -> Interpreter {
+    Interpreter::new(Some(self))
+  }
+
+  fn get_variable(&self, name: &str) -> Option<Literal> {
+    if let Some(val) = self.variables.get(name) {
+      Some(val.clone())
+    } else if let Some(parent) = self.parent {
+      unsafe {
+        (*parent).get_variable(name)
+      }
+    } else {
+      None
+    }
+  }
+
+  fn find_and_set(&mut self, name: &str, literal: &Literal) -> Option<()> {
+    if let Some(parent) = self.parent {
+      unsafe {
+        (*parent).find_and_set(name, literal)
+      }
+    } else {
+      if let Some(_) = self.get_variable(name) {
+        self.variables.insert(name.to_string(), literal.clone());
+        Some(())
+      } else {
+        None
+      }
+    }
+  }
+
+  fn set_variable(&mut self, name: &str, literal: Literal) {
+    if let None = self.find_and_set(name, &literal) {
+      self.variables.insert(name.to_string(), literal);
     }
   }
 
@@ -202,28 +244,28 @@ impl Interpreter {
       nleft = match left {
         &Literal::Variable(ref name) => {
           if !is_assignment {
-            if let Some(val) = self.variables.get(name as &str) {
+            if let Some(val) = self.get_variable(name as &str) {
               val
             } else {
-              &Literal::Nil
+              Literal::Nil
             }
           } else {
-            left
+            left.clone()
           }
         },
-        _ => left
-      }.clone();
+        _ => left.clone()
+      };
 
       nright = match right {
         &Literal::Variable(ref name) => {
-          if let Some(val) = self.variables.get(name as &str) {
+          if let Some(val) = self.get_variable(name as &str) {
             val
           } else {
-            &Literal::Nil
+            Literal::Nil
           }
         },
-        _ => right
-      }.clone();
+        _ => right.clone()
+      };
     }
 
     match (nleft, nright, operation.0).clone() {
@@ -244,10 +286,10 @@ impl Interpreter {
 
       // string
       (Literal::String(ref s), Literal::String(ref s2), Token::Plus) => Ok(Literal::String(format!("{}{}", s, s2))),
-      (Literal::String(ref s), Literal::Num(ref i), Token::Asterix) |
-      (Literal::Num(ref i), Literal::String(ref s), Token::Asterix) => Ok(Literal::String(format!{"{}", s}.repeat(*i as usize))),
       (Literal::Num(ref i), Literal::String(ref s), Token::Plus) => Ok(Literal::String(format!{"{}{}", i, s})),
       (Literal::String(ref s), Literal::Num(ref i), Token::Plus) => Ok(Literal::String(format!{"{}{}", s, i})),
+      (Literal::String(ref s), Literal::Num(ref i), Token::Asterix) |
+      (Literal::Num(ref i), Literal::String(ref s), Token::Asterix) => Ok(Literal::String(format!{"{}", s}.repeat(*i as usize))),
 
       // string compare
       (Literal::String(ref s), Literal::String(ref s2), Token::EqualsEquals) => Ok(Literal::Bool(*s == *s2)),
@@ -262,43 +304,52 @@ impl Interpreter {
 
       // assign
       (Literal::Variable(ref name), Literal::Num(ref i), Token::Equals) => {
-        self.variables.insert(String::from(name as &str), Literal::Num(*i));
+        self.set_variable(name, Literal::Num(*i));
         Ok(Literal::Num(*i))
       },
       (Literal::Variable(ref name), Literal::String(ref i), Token::Equals) => {
-        self.variables.insert(String::from(name as &str), Literal::String(i.clone()));
+        self.set_variable(name, Literal::String(i.clone()));
         Ok(Literal::String(i.clone()))
       },
       (Literal::Variable(ref name), Literal::Bool(ref i), Token::Equals) => {
-        self.variables.insert(String::from(name as &str), Literal::Bool(*i));
+        self.set_variable(name, Literal::Bool(*i));
         Ok(Literal::Bool(*i))
       },
       (Literal::Variable(ref name), Literal::Nil, Token::Equals) => {
-        self.variables.insert(String::from(name as &str), Literal::Nil);
+        self.set_variable(name, Literal::Nil);
         Ok(Literal::Nil)
       },
 
       _ => {
-        fn get_type(variables: &HashMap<String, Literal>, literal: &Literal, pos: i32) -> Result<&'static str, InterpreterErr> {
+        fn get_type<F>(get_var: &F, literal: &Literal, pos: i32) -> Result<&'static str, InterpreterErr>
+          where F: Fn(&str) -> Option<Literal>
+        {
           match literal {
             &Literal::Num(_) => Ok("num"),
             &Literal::String(_) => Ok("string"),
             &Literal::Nil => Ok("nil"),
             &Literal::Bool(_) => Ok("boolean"),
-            &Literal::Variable(ref name) => match variables.get(name as &str) {
+            &Literal::Variable(ref name) => match get_var(name as &str) {
               Some(val) => match val {
-                &Literal::Num(_) => Ok("num"),
-                &Literal::String(_) => Ok("string"),
-                &Literal::Nil => Ok("nil"),
-                &Literal::Bool(_) => Ok("boolean"),
-                _ => get_type(variables, val, pos)
+                Literal::Num(_) => Ok("num"),
+                Literal::String(_) => Ok("string"),
+                Literal::Nil => Ok("nil"),
+                Literal::Bool(_) => Ok("boolean"),
+                _ => get_type(get_var, &val, pos)
               },
               None => Err(InterpreterErr::IdentifierNotFound(String::from(name as &str), pos))
             },
           }
         };
 
-        Err(InterpreterErr::ArithmeticErr(get_type(&self.variables, left, left_pos)?, get_type(&self.variables, right, right_pos)?, operation.0, operation.1))
+        let point: *mut Interpreter = self as *mut Interpreter;
+        let get_var = |name: &str| -> Option<Literal> {
+          unsafe {
+            (*point).get_variable(name)
+          }
+        };
+
+        Err(InterpreterErr::ArithmeticErr(get_type(&get_var, left, left_pos)?, get_type(&get_var, right, right_pos)?, operation.0, operation.1))
       }
     }
   }
