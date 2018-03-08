@@ -55,7 +55,7 @@ fn lexer_err(err: &LexErr, query: &str) {
       err_pos = pos;
       description = String::from("mismatched quote");
     },
-    &LexErr::UnknownToken(token, pos) => {
+    &LexErr::UnknownToken(ref token, pos) => {
       title = "Lexer error: UnknownToken";
       err_pos = pos;
       description = format!("unknown token \"{}\"", token);

@@ -9,10 +9,10 @@ pub use self::info::get_tokens;
 use std::collections::HashMap;
 
 #[derive(Debug)]
-enum PreLexed<'a> {
+enum PreLexed {
   String(String, i32),
-  Rest(&'a str, i32),
-  Comment(&'a str)
+  Rest(String, i32),
+  Comment(String)
 }
 
 #[derive(Debug, Clone)]
@@ -23,7 +23,8 @@ pub enum Literal {
   Nil,
   // Function(Vec<String>, ),
 
-  Variable(String)
+  Variable(String),
+  // Tuple(Vec<Box<Literal>>)
 }
 
 #[derive(Debug)]
@@ -52,14 +53,14 @@ fn remove_comments(query: &str) -> Result<Vec<PreLexed>, LexErr> {
         }
         if prev_char == '/' {
           is_comment = true;
-          pre_lexed.push(PreLexed::Rest(&query[start..i-1], start as i32));
+          pre_lexed.push(PreLexed::Rest(query[start..i-1].to_string(), start as i32));
           start = i;
         }
       },
       '\n' => {
         if is_comment {
           is_comment = false;
-          pre_lexed.push(PreLexed::Comment(&query[start-1..i]));
+          pre_lexed.push(PreLexed::Comment(query[start-1..i].to_string()));
           start = i;
         }
       },
@@ -68,18 +69,18 @@ fn remove_comments(query: &str) -> Result<Vec<PreLexed>, LexErr> {
   }
 
   pre_lexed.push(if is_comment {
-    PreLexed::Comment(&query[start-1..query.len()])
+    PreLexed::Comment(query[start-1..query.len()].to_string())
   } else {
-    PreLexed::Rest(&query[start..query.len()], query.len() as i32)
+    PreLexed::Rest(query[start..query.len()].to_string(), query.len() as i32)
   });
 
   Ok(pre_lexed)
 }
 
-fn resolve_escapes<'a>(query: &str, pos: i32) -> Result<String, LexErr> {
+fn resolve_escapes(query: &str, pos: i32) -> Result<String, LexErr> {
   let mut s = String::from("");
 
-  fn get_seq<'a>(c: char, pos: i32) -> Result<char, LexErr<'a>> {
+  fn get_seq<'a>(c: char, pos: i32) -> Result<char, LexErr> {
     Ok(match c {
       'n' => '\n',
       't' => '\t',
@@ -114,7 +115,8 @@ fn resolve_escapes<'a>(query: &str, pos: i32) -> Result<String, LexErr> {
 }
 
 fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
-  let removed_comments = remove_comments(query)?;
+  let query = query.to_string();
+  let removed_comments = remove_comments(&query)?;
 
   let mut pre_lexed: Vec<PreLexed> = Vec::new();
 
@@ -150,7 +152,7 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
               let s = &query[start..i];
               let apos = start as i32 + comment_offset as i32 + rest_offset as i32;
               pre_lexed.push(if in_quote {
-                PreLexed::Rest(s, apos)
+                PreLexed::Rest(s.to_string(), apos)
               } else {
                 PreLexed::String(resolve_escapes(s, apos)?, apos)
               });
@@ -167,7 +169,7 @@ fn pre_lex(query: &str) -> Result<Vec<PreLexed>, LexErr> {
           return Err(LexErr::MismatchedQuotes((start - 1) as i32 + comment_offset as i32 + rest_offset as i32));
         }
 
-        pre_lexed.push(PreLexed::Rest(&query[start..query.len()], start as i32 + comment_offset as i32 + rest_offset as i32));
+        pre_lexed.push(PreLexed::Rest(query[start..query.len()].to_string(), start as i32 + comment_offset as i32 + rest_offset as i32));
 
         rest_offset += query.len() as i32;
       },
@@ -288,11 +290,12 @@ fn trim<'a>(val: &'a str) -> (&'a str, i32, i32) {
 }
 
 fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
-
   let prev_tokens: HashMap<&str, Token> = info::get_tokens();
-
   let tokens: Vec<(&&str, &Token)> = prev_tokens.iter().collect();
   // tokens.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+
+  let mut last_pos = 0;
+  let mut last_len = 0;
 
   let mut lexed: Vec<Lexed> = Vec::new();
   for i in pre_lexed {
@@ -301,11 +304,15 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
       },
       PreLexed::Rest(val, pos) => {
-        let val = trim(val).0;
+        last_pos = pos;
+
+        let val = trim(&val).0;
 
         let mut offset = 0;
         let mut r_offset: i32 = -1;
         let len = val.len();
+
+        last_len = len;
 
         while offset < len {
           r_offset += 1;
@@ -337,7 +344,7 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
           } else if is_number(trimmed.0) {
             lexed.push(Lexed::Literal(Literal::Num(trimmed.0.parse::<f64>().unwrap()), apos));
           } else if trimmed.0.len() <= 1 {
-            return Err(LexErr::UnknownToken(trimmed.0, apos));
+            return Err(LexErr::UnknownToken(trimmed.0.to_string(), apos));
           } else {
             continue;
           }
@@ -347,6 +354,9 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
         }
       },
       PreLexed::String(val, pos) => {
+        last_pos = pos;
+        last_len = val.len();
+
         lexed.push(Lexed::Literal(Literal::String(String::from(val)), pos));
       }
     };
@@ -361,35 +371,7 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
     _ => true
   });
 
-  fn get_string_from_token<'a>(token: &Token, tokens: &HashMap<&'a str, Token>) -> Option<&'a str> {
-    for (k, v) in tokens {
-      if token == v {
-        return Some(k);
-      }
-    }
-    None
-  }
-
-  let last_pos: i32 = if lexed.len() >= 1 {
-    let last_elem = &lexed[lexed.len() - 1];
-    match last_elem {
-      &Lexed::Identifier(ref val, ref pos) => val.len() as i32 + *pos,
-      &Lexed::Literal(ref literal, ref pos) => (match literal {
-        &Literal::Bool(b) => (if b { "true".len() } else { "false".len() }) as i32,
-        &Literal::Nil => "nil".len() as i32,
-        &Literal::Num(i) => i.to_string().len() as i32,
-        &Literal::String(ref s) => s.len() as i32,
-        &Literal::Variable(_) => 0
-      }) + *pos,
-      &Lexed::Operator(ref operator, ref pos) => (match get_string_from_token(operator, &prev_tokens) {
-        Some(val) => val.len() as i32,
-        None => 0
-      }) + *pos
-    }
-  } else {
-    0
-  };
-  lexed.push(Lexed::Operator(Token::EOF, last_pos));
+  lexed.push(Lexed::Operator(Token::EOF, last_pos + last_len as i32));
 
   Ok(lexed)
 }

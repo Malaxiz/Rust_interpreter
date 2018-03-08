@@ -8,13 +8,13 @@ use lexer::Literal;
 mod handle_err;
 
 #[derive(Debug)]
-pub enum LangErr<'a> {
-  LexErr(lexer::LexErr<'a>),
+pub enum LangErr {
+  LexErr(lexer::LexErr),
   ParserErr(parser::ParserErr),
   InterpreterErr(interpreter::InterpreterErr)
 }
 
-fn do_exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<String, LangErr<'a>> {
+fn do_exec(query: &str, interpreter: &mut Interpreter) -> Result<String, LangErr> {
   let lexed = match lexer::lex(query) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::LexErr(err))
@@ -43,7 +43,7 @@ fn do_exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<Strin
   Ok(interpreted)
 }
 
-pub fn exec<'a>(query: &'a str, interpreter: &'a mut Interpreter) -> Result<String, LangErr<'a>> {
+pub fn exec(query: &str, interpreter: &mut Interpreter) -> Result<String, LangErr> {
   let result = do_exec(query, interpreter);
   match result {
     Err(ref err) => {

@@ -13,9 +13,9 @@ macro_rules! map(
 );
 
 #[derive(Debug)]
-pub enum LexErr<'a> {
+pub enum LexErr {
   MismatchedQuotes(i32),
-  UnknownToken(&'a str, i32),
+  UnknownToken(String, i32),
   UnknownEscapeSequence(char, i32)
 }
 
@@ -36,6 +36,7 @@ pub enum Token {
   DotDot,
   BraceClose,
   BraceOpen,
+  Arrow,
 
   ParOpen,
   ParClose,
@@ -85,6 +86,7 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     ".." => DotDot,
     "{" => BraceOpen,
     "}" => BraceClose,
+    "=>" => Arrow,
 
     "(" => ParOpen,
     ")" => ParClose,
@@ -106,6 +108,8 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "false" => False,
     "nil" => Nil,
 
-    "print!" => Print
+    "print!" => Print,
+
+    "!@#$!@#$!@#$" => EOF
   }
 }
