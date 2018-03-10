@@ -116,6 +116,16 @@ fn parser_err(err: &ParserErr, query: &str) {
       title = "Parser error: MismatchedParenthesis";
       err_pos = pos;
       description = format!("mismatched parenthesis");
+    },
+    // &ParserErr::ExpectedArrow(pos) => {
+    //   title = "Parser error: ExpectedArrow";
+    //   err_pos = pos;
+    //   description = format!("expected arrow for function expression");
+    // },
+    &ParserErr::ExpectedIdentifier(pos) => {
+      title = "Parser error: ExpectedIdentifier";
+      err_pos = pos;
+      description = format!("expected identifier");
     }
     _ => {
       title = "Parser error!";

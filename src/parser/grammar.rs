@@ -33,6 +33,12 @@ pub enum Expression {
   // expr, body, expr_pos, pos
   WhileExpr(Box<Expression>, Vec<Box<Declaration>>, i32, i32),
 
+  // parameters, body
+  FunctionExpr(Vec<String>, Vec<Box<Declaration>>),
+
+  // name, arguments
+  FunctionCallExpr(String, Vec<String>),
+
   PrintExpr(Box<Expression>, i32),
 }
 
@@ -130,7 +136,7 @@ impl<'a> Grammar {
   }
 
   fn assign(&mut self) -> Result<Expression, ParserErr> {
-    let mut expr = self.print_expr()?;
+    let mut expr = self.func_expr()?;
 
     while let Some((operator, pos)) = self.do_match(&[Equals]) {
       let right = self.assign()?;
@@ -140,8 +146,147 @@ impl<'a> Grammar {
     Ok(expr)
   }
 
+  // fn func_expr(&mut self) -> Result<Expression, ParserErr> {
+  //   let mut err: Option<ParserErr> = None;
+
+  //   if let Some((_, pos)) = self.do_match(&[ParOpen]) { // todo: redo
+  //     let par_pos = pos;
+  //     let revert_to = self.current - 1;
+
+  //     let function = unsafe {
+  //       (|self_point: *mut Self| -> Result<(Vec<String>, Vec<Box<Declaration>>), ParserErr> {
+  //         let mut last_par = 0;
+  //         let mut parameters: Vec<String> = Vec::new();
+  //         while let Some((_operator, pos)) = (*self_point).do_match(&[Identifier]) {
+  //           if let &Lexed::Identifier(ref name, _) = &(*self_point).lexed[(*self_point).current - 1] {
+  //             parameters.push(name.to_string());
+  //             if let None = (*self_point).do_match(&[Comma]) {
+  //               if let Some((_, pos)) = (*self_point).do_match(&[ParClose]) {
+  //                 last_par = pos;
+  //               } else {
+  //                 return Err(ParserErr::MismatchedParenthesis(par_pos));
+  //               }
+  //               break;
+  //             }
+  //           } else {
+  //             return Err(ParserErr::ExpectedIdentifier(pos));
+  //           }
+  //         }
+
+  //         println!("here");
+
+  //         let mut decls: Vec<Box<Declaration>> = Vec::new();
+  //         if let Some(_) = (*self_point).do_match(&[Arrow]) {
+  //           if let Some(_) = (*self_point).do_match(&[BraceOpen]) {
+  //             while let None = (*self_point).do_match(&[BraceClose]) {
+  //               decls.push(Box::new((*self_point).declaration()?));
+  //             }
+  //           } else {
+  //             decls.push(Box::new((*self_point).declaration()?));
+  //           }
+  //           return Ok((parameters, decls));
+  //         } else {
+  //           return Err(ParserErr::ExpectedArrow(last_par));
+  //         }
+  //       })(self)
+  //     };
+
+  //     println!("{:?}", function);
+
+  //     if let Ok((parameters, decls)) = function {
+  //       return Ok(Expression::FunctionExpr(parameters, decls));
+  //     } else if let Err(val) = function {
+  //       err = Some(val);
+  //       self.current = revert_to;
+  //     }
+  //   }
+
+  //   let expr = self.func_call_expr();
+
+  //   match expr {
+  //     Ok(val) => {
+  //       Ok(val)
+  //     },
+  //     Err(val) => {
+  //       if let Some(errf) = err {
+  //         Err(errf)
+  //       } else {
+  //         Err(val)
+  //       }
+  //     }
+  //   }
+
+  //   // if let Ok(val) = expr {
+  //   //   Ok(val)
+  //   // } else {
+  //   //   if let Err(val) = expr {
+  //   //     Err(if let Some(errf) = err {
+  //   //       errf
+  //   //     } else {
+  //   //       val
+  //   //     })
+  //   //   }
+  //   // }
+  // }
+  
+  fn func_expr(&mut self) -> Result<Expression, ParserErr> {
+    if let Some((_, pos)) = self.do_match(&[Func]) {
+      let mut parameters: Vec<String> = Vec::new();
+      if let Some((_, par_pos)) = self.do_match(&[ParOpen]) {
+        loop {
+          if let Some(_) = self.do_match(&[Identifier]) {
+            if let Lexed::Identifier(ref name, _) = self.lexed[self.current - 1] { // it must be
+              parameters.push(name.to_string());
+            } else {
+              println!("function parsing this should not happen");
+            }
+
+            if let None = self.do_match(&[Comma]) {
+              break;
+            }
+          } else {
+            return Err(ParserErr::ExpectedIdentifier(self.get_pos()));
+          }
+        }
+
+        if let None = self.do_match(&[ParClose]) {
+          println!("here");
+          return Err(ParserErr::MismatchedParenthesis(par_pos));
+        }
+      }
+
+      println!("{:?}", parameters);
+
+      if let Some(_) = self.do_match(&[BraceOpen]) {
+        let mut body: Vec<Box<Declaration>> = Vec::new();
+        while let None = self.do_match(&[BraceClose]) {
+          body.push(Box::new(self.declaration()?));
+        }
+
+        let fexpr = Expression::FunctionExpr(parameters, body);
+
+        println!("{:?}", fexpr);
+        return Ok(fexpr);
+      } else {
+        return Err(ParserErr::ExpectedBraceOpen(pos));
+      }
+    }
+
+    Ok(self.func_call_expr()?)
+  }
+
+  fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
+    let expr = self.print_expr()?;
+
+    // if let Some((_operator, pos)) = self.do_match(&[Token::ParOpen]) {
+
+    // }
+
+    Ok(expr)
+  }
+
   fn print_expr(&mut self) -> Result<Expression, ParserErr> {
-    if let Some((operator, pos)) = self.do_match(&[Print]) {
+    if let Some((_operator, pos)) = self.do_match(&[Print]) {
       let expr = self.expression()?;
       return Ok(Expression::PrintExpr(Box::new(expr), pos));
     }
@@ -152,7 +297,7 @@ impl<'a> Grammar {
   fn while_expr(&mut self) -> Result<Expression, ParserErr> {
     let pos = self.get_pos();
 
-    if let Some((operator, pos)) = self.do_match(&[While]) {
+    if let Some((_operator, pos)) = self.do_match(&[While]) {
       let expr_pos = self.get_pos();
       let expr = self.expression()?;
       // let expr = Expression::Binary(Box::new(Expression::Primary(Primary::Literal(&Literal::Bool(true)), expr_pos)), (Token::EqualsEquals, expr_pos), Box::new(expr));
@@ -295,7 +440,7 @@ impl<'a> Grammar {
       return Ok(Expression::Primary(Primary::Literal(Literal::Nil), pos));
     }
 
-    println!("{:?}", self.lexed[self.current]);
+    println!("last effort: {:?}", self.lexed[self.current]);
 
     // last effort
     let expr = self.expression()?;

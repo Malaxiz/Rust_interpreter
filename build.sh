@@ -1,0 +1,1 @@
+cargo run --color=always 2>&1 | head -n 40

@@ -27,13 +27,15 @@ fn do_exec(query: &str, interpreter: &mut Interpreter) -> Result<String, LangErr
   };
   // println!("{:?}", parsed);
 
-  let interpreted = match interpreter.exec_program(&parsed) {
+  let interpreted = match interpreter.exec(&parsed) {
     Ok(val) => {
       match val {
         Literal::Bool(b) => String::from(if b { "true" } else { "false" }),
         Literal::String(s) => s,
         Literal::Num(n) => n.to_string(),
         Literal::Nil => String::from("nil"),
+        Literal::Function(id, parameters, body) => format!("<function id:{}, ({:?})>", id, parameters),
+
         Literal::Variable(v) => String::from("variable")
       }
     },

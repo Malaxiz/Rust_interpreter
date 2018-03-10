@@ -6,6 +6,8 @@ pub use self::info::Token;
 pub use self::info::LexErr;
 pub use self::info::get_tokens;
 
+use parser::Declaration;
+
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -21,10 +23,12 @@ pub enum Literal {
   Num(f64),
   Bool(bool),
   Nil,
-  // Function(Vec<String>, ),
+
+  // id, parameters, body
+  Function(i32, Vec<String>, Vec<*mut Declaration>),
+  // Tuple(Vec<Box<Literal>>),
 
   Variable(String),
-  // Tuple(Vec<Box<Literal>>)
 }
 
 #[derive(Debug)]
@@ -306,8 +310,10 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
       PreLexed::Rest(val, pos) => {
         last_pos = pos;
 
-        let val = trim(&val).0;
+        let trimmed = trim(&val);
+        let val = trimmed.0;
 
+        let pre_offset = trimmed.1;
         let mut offset = 0;
         let mut r_offset: i32 = -1;
         let len = val.len();
@@ -323,7 +329,7 @@ fn tokenize(pre_lexed: Vec<PreLexed>) -> Result<Vec<Lexed>, LexErr> {
 
           let curr = &val[offset..len - r_offset as usize];
           let trimmed = trim(curr);
-          let apos = pos + trimmed.1 + offset as i32;
+          let apos = pos + trimmed.1 + offset as i32 + pre_offset;
           // println!("curr: {}, trim: {}, off: {}, r_off: {}, lex: {}", curr, trimmed.0, offset, r_offset, lexed.len());
 
           if curr.len() <= 0 {

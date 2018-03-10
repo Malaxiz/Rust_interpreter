@@ -28,7 +28,8 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
     EOF,
     Print,
     If,
-    While
+    While,
+    Func,
   ];
 
   let mut i = 0;
@@ -74,14 +75,14 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
     match t {
       &Lexed::Literal(ref _literal, _pos) => {
         allowed_operators = vec![
-          Plus, Minus, Asterix, DoubleAsterix, Slash, Dot, ParClose, SemiColon,
+          Plus, Minus, Asterix, DoubleAsterix, Slash, Dot, Comma, ParClose, SemiColon,
           BraceOpen, BraceClose,
           EqualsEquals, BangEquals, LtOrEquals, GtOrEquals, Gt, Lt, EOF
         ];
       },
       &Lexed::Identifier(ref _name, _pos) => {
         allowed_operators = vec![
-          Equals, Plus, Minus, Asterix, DoubleAsterix, Slash, Dot, ParClose, SemiColon, ParOpen,
+          Equals, Plus, Minus, Asterix, DoubleAsterix, Slash, Dot, Comma, ParClose, SemiColon, ParOpen,
           BraceOpen, BraceClose,
           EqualsEquals, BangEquals, LtOrEquals, GtOrEquals, Gt, Lt, EOF
         ];
@@ -115,6 +116,13 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
           Dot => {
             allowed_identifier = true;
           },
+          Comma => {
+            allowed_identifier = true;
+            allowed_literal = true;
+            allowed_operators = vec![
+              Minus, Bang
+            ];
+          },
           ParOpen => {
             allowed_identifier = true;
             allowed_literal = true;
@@ -127,6 +135,19 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_operators = vec![
               ParClose, ParOpen, Plus, Minus, Asterix, Slash, Dot, SemiColon, BraceOpen,
               EqualsEquals, BangEquals, LtOrEquals, GtOrEquals, Gt, Lt, EOF
+            ];
+          },
+          // Arrow => {
+          //   allowed_identifier = true;
+          //   allowed_literal = true;
+          //   allowed_operators = vec![
+          //     Minus, Bang, ParOpen, BraceOpen,
+          //     If, While, Print
+          //   ];
+          // },
+          Func => {
+            allowed_operators = vec![
+              ParOpen
             ];
           },
           SemiColon => {
@@ -169,7 +190,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_identifier = true;
             allowed_literal = true;
             allowed_operators = vec![
-              Minus, Bang, ParOpen, Print, BraceClose,
+              Minus, Bang, ParOpen, Print, BraceClose, Func,
               If, While
             ];
           },
