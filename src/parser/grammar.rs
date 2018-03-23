@@ -245,7 +245,8 @@ impl<'a> Grammar {
               break;
             }
           } else {
-            return Err(ParserErr::ExpectedIdentifier(self.get_pos()));
+            break;
+            // return Err(ParserErr::ExpectedIdentifier(self.get_pos()));
           }
         }
 

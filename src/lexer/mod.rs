@@ -24,8 +24,8 @@ pub enum Literal {
   Bool(bool),
   Nil,
 
-  // id, parameters, body
-  Function(i32, Vec<String>, Vec<*mut Declaration>),
+  // parameters, body
+  Function(Vec<String>, Vec<*const Declaration>),
   // Tuple(Vec<Box<Literal>>),
 
   Variable(String),

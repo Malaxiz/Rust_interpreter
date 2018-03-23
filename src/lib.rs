@@ -34,7 +34,7 @@ fn do_exec(query: &str, interpreter: &mut Interpreter) -> Result<String, LangErr
         Literal::String(s) => s,
         Literal::Num(n) => n.to_string(),
         Literal::Nil => String::from("nil"),
-        Literal::Function(id, parameters, body) => format!("<function id:{}, ({:?})>", id, parameters),
+        Literal::Function(parameters, body) => format!("<function ({:?})>", parameters),
 
         Literal::Variable(v) => String::from("variable")
       }

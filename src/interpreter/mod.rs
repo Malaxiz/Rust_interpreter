@@ -267,9 +267,14 @@ impl Interpreter {
         }
       },
       &Expression::FunctionExpr(ref parameters, ref body) => {
+        let mut decls: Vec<*const Declaration> = Vec::new();
+        for ref i in body {
+          decls.push(&***i as *const Declaration);
+        }
+        let func = Literal::Function((*parameters).clone(), decls);
         
-
-        Err(InterpreterErr::TempError)
+        Ok(self.save_value(func))
+        // Err(InterpreterErr::TempError)
       },
       &Expression::FunctionCallExpr(ref name, ref arguments) => {
         Err(InterpreterErr::TempError)
@@ -291,7 +296,14 @@ impl Interpreter {
     scope
   }
 
-  fn get_variable(&self, name: &str) -> Option<*const Literal> {
+  fn get_variable(&mut self, name: &str) -> Option<*const Literal> {
+    if name == "vars" { // temp?
+      unsafe {
+        let self_point: *mut Self = self;
+        return Some(self.save_value(Literal::String(format!("{:?}", (*(*self_point).get_root_point()).variables))));
+      }
+    }
+
     if let Some(val) = self.variables.get(name) {
       Some(*val)
     } else if let Some(parent) = self.parent {
@@ -348,7 +360,7 @@ impl Interpreter {
         &Literal::Nil => Ok(false), // temp ?
         &Literal::Num(_) => return Err(InterpreterErr::CastErr("num".to_string(), "bool".to_string(), pos)),
         &Literal::String(_) => return Err(InterpreterErr::CastErr("string".to_string(), "bool".to_string(), pos)),
-        &Literal::Function(ref id, ref parameters, _) => return Err(InterpreterErr::CastErr(format!("<function id:{}, ({:?})>", id, parameters), "bool".to_string(), pos)),
+        &Literal::Function(ref parameters, _) => return Err(InterpreterErr::CastErr(format!("<function ({:?})>", parameters), "bool".to_string(), pos)),
 
         &Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable".to_string(), "bool".to_string(), pos)), // should not happen
       }
@@ -439,7 +451,7 @@ impl Interpreter {
                 &Literal::String(_) => Ok("string".to_string()),
                 &Literal::Nil => Ok("nil".to_string()),
                 &Literal::Bool(_) => Ok("boolean".to_string()),
-                &Literal::Function(ref id, ref parameters, _) => Ok(format!("<function id:{}, ({:?})>", id, parameters)),
+                &Literal::Function(ref parameters, _) => Ok(format!("<function ({:?})>", parameters)),
                 &Literal::Variable(ref name) => match get_var(name as &str) {
                   Some(val) => get_type(get_var, val, pos),
                   None => {
