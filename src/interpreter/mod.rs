@@ -30,9 +30,22 @@ pub enum InterpreterErr {
   CastErr(String, String, i32),
 }
 
+enum ExpressionReturnType {
+  New(Literal),
+  Ref(*const Literal),
+  Error(InterpreterErr)
+}
+
+use self::ExpressionReturnType::*;
+
 enum RootType {
   Root(Root),
   RootRef(*mut Root)
+}
+
+enum GcSize {
+  Easy,
+  Hard,
 }
 
 pub struct Root {
@@ -48,8 +61,17 @@ impl Root {
     }
   }
 
-  pub fn gc(&mut self) { // garbage collect
+  fn gc(&mut self, size: GcSize) { // garbage collect
+    self.variables.retain(|ref x| match ***x {
+      Literal::Variable(_) => false,
+      _ => true
+    });
 
+    // if let GcSize::Hard = size {
+    //   self.variables.retain(|ref x| match ***x {
+
+    //   })
+    // }
   }
 }
 
@@ -57,6 +79,12 @@ pub struct Interpreter {
   variables: HashMap<String, *const Literal>,
   parent: Option<*mut Interpreter>,
   root: RootType
+}
+
+impl Drop for Interpreter {
+  fn drop(&mut self) {
+    println!("dropping: {:?}", self as *mut Interpreter);
+  }
 }
 
 impl Interpreter {
@@ -121,6 +149,8 @@ impl Interpreter {
 
   fn exec_expr(&mut self, expression: &Expression) -> Result<*const Literal, InterpreterErr> {
     unsafe {
+      // (*self.get_root_point()).gc(GcSize::Easy);
+
       let res = self.exec_binary(expression)?;
       let res: &Literal = &*res;
       let res = match res {
@@ -154,7 +184,6 @@ impl Interpreter {
           Expression::Primary(_, pos) => pos,
           _ => 0
         };
-
         let left = self.exec_binary(&*left)?;
         let right = self.exec_binary(&*right)?;
         self.literal_math(left, right, token, left_pos, right_pos)
@@ -227,17 +256,18 @@ impl Interpreter {
     }
   }
 
-  fn get_scope(&mut self) -> Interpreter {
+  fn get_scope(&mut self) -> Box<Interpreter> {
     let root_point = self.get_root_point();
     unsafe {
-      (*root_point).gc();
+      // (*root_point).gc(GcSize::Hard);
     }
 
-    let self_point: *mut Self = self;
+    let mut scope = Box::new(Interpreter::new_scoped(self, RootType::RootRef(root_point)));
+    let scope_point: *mut Interpreter = &mut *scope;
     unsafe {
-      let scope = Interpreter::new_scoped(self, RootType::RootRef(root_point));
-      scope
+      (*root_point).scopes.push(scope_point);
     }
+    scope
   }
 
   fn get_variable(&self, name: &str) -> Option<*const Literal> {
@@ -261,41 +291,32 @@ impl Interpreter {
 
   fn save_value(&mut self, literal: Literal) -> *const Literal {
     unsafe {
-      let mut root_point: *mut Root = self.get_root_point();
-      (*root_point).variables.push(Box::new(literal));
-      &*(*root_point).variables[(*root_point).variables.len() - 1]
+      let root_point: *mut Root = self.get_root_point();
+      let b = Box::new(literal);
+      let point: *const Literal = &*b;
+      (*root_point).variables.push(b);
+      point
     }
   }
 
-  fn find_and_set(&mut self, name: &str, literal: Literal) -> Option<Literal> { // give back literal
-    let mut root_point: *mut Root = self.get_root_point();
-
+  fn find_and_set(&mut self, name: &str, literal: *const Literal) -> Option<()> { // give back literal
     unsafe {
       if let Some(parent) = self.parent {
         (*parent).find_and_set(name, literal)
       } else {
         if let Some(_) = self.get_variable(name) {
-          (*root_point).variables.push(Box::new(literal));
-          let literal_point: *const Literal = &*(*root_point).variables[(*root_point).variables.len() - 1];
-          self.variables.insert(name.to_string(), literal_point);
-
-          None
+          self.variables.insert(name.to_string(), literal);
+          Some(())
         } else {
-          Some(literal)
+          None
         }
       }
     }
   }
 
-  fn set_variable(&mut self, name: &str, literal: Literal) {
-    unsafe {
-      let mut root_point: *mut Root = self.get_root_point();
-
-      if let Some(literal) = self.find_and_set(name, literal) {
-        (*root_point).variables.push(Box::new(literal));
-        let literal_point: *const Literal = &*(*root_point).variables[(*root_point).variables.len() - 1];
-        self.variables.insert(name.to_string(), literal_point);
-      }
+  fn set_variable(&mut self, name: &str, literal: *const Literal) {
+    if let None = self.find_and_set(name, literal) {
+      self.variables.insert(name.to_string(), literal);
     }
   }
 
@@ -328,10 +349,10 @@ impl Interpreter {
               &NIL
             }
           } else {
-            left.clone()
+            left
           }
         },
-        _ => left.clone()
+        _ => left
       };
 
       nright = match &*right {
@@ -345,57 +366,46 @@ impl Interpreter {
         _ => right.clone()
       };
     
+      
 
-      let literal = match (&*nleft, &*nright, operation.0).clone() {
+      let literal_return: ExpressionReturnType = match (&*nleft, &*nright, operation.0).clone() {
         // num
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Plus) => Ok(Literal::Num(i+i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Minus) => Ok(Literal::Num(i-i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Asterix) => Ok(Literal::Num(i*i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Slash) => Ok(Literal::Num(i/i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::DoubleAsterix) => Ok(Literal::Num(i.powf(*i2))),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Plus) => New(Literal::Num(i+i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Minus) => New(Literal::Num(i-i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Asterix) => New(Literal::Num(i*i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Slash) => New(Literal::Num(i/i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::DoubleAsterix) => New(Literal::Num(i.powf(*i2))),
 
         // num compare
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::EqualsEquals) => Ok(Literal::Bool(*i == *i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::BangEquals) => Ok(Literal::Bool(*i != *i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Gt) => Ok(Literal::Bool(*i > *i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Lt) => Ok(Literal::Bool(*i < *i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::GtOrEquals) => Ok(Literal::Bool(*i >= *i2)),
-        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::LtOrEquals) => Ok(Literal::Bool(*i <= *i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::EqualsEquals) => New(Literal::Bool(*i == *i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::BangEquals) => New(Literal::Bool(*i != *i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Gt) => New(Literal::Bool(*i > *i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::Lt) => New(Literal::Bool(*i < *i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::GtOrEquals) => New(Literal::Bool(*i >= *i2)),
+        (&Literal::Num(ref i), &Literal::Num(ref i2), Token::LtOrEquals) => New(Literal::Bool(*i <= *i2)),
 
         // string
-        (&Literal::String(ref s), &Literal::String(ref s2), Token::Plus) => Ok(Literal::String(format!("{}{}", s, s2))),
-        (&Literal::Num(ref i), &Literal::String(ref s), Token::Plus) => Ok(Literal::String(format!{"{}{}", i, s})),
-        (&Literal::String(ref s), &Literal::Num(ref i), Token::Plus) => Ok(Literal::String(format!{"{}{}", s, i})),
+        (&Literal::String(ref s), &Literal::String(ref s2), Token::Plus) => New(Literal::String(format!("{}{}", s, s2))),
+        (&Literal::Num(ref i), &Literal::String(ref s), Token::Plus) => New(Literal::String(format!{"{}{}", i, s})),
+        (&Literal::String(ref s), &Literal::Num(ref i), Token::Plus) => New(Literal::String(format!{"{}{}", s, i})),
         (&Literal::String(ref s), &Literal::Num(ref i), Token::Asterix) |
-        (&Literal::Num(ref i), &Literal::String(ref s), Token::Asterix) => Ok(Literal::String(format!{"{}", s}.repeat(*i as usize))),
+        (&Literal::Num(ref i), &Literal::String(ref s), Token::Asterix) => New(Literal::String(format!{"{}", s}.repeat(*i as usize))),
 
         // string compare
-        (&Literal::String(ref s), &Literal::String(ref s2), Token::EqualsEquals) => Ok(Literal::Bool(*s == *s2)),
-        (&Literal::String(ref s), &Literal::String(ref s2), Token::BangEquals) => Ok(Literal::Bool(*s != *s2)),
+        (&Literal::String(ref s), &Literal::String(ref s2), Token::EqualsEquals) => New(Literal::Bool(*s == *s2)),
+        (&Literal::String(ref s), &Literal::String(ref s2), Token::BangEquals) => New(Literal::Bool(*s != *s2)),
 
         // boolean
-        (&Literal::Num(_), &Literal::Bool(ref b), Token::Bang) => Ok(Literal::Bool(!b)),
+        (&Literal::Num(_), &Literal::Bool(ref b), Token::Bang) => New(Literal::Bool(!b)),
 
         // boolean compare
-        (&Literal::Bool(ref b), &Literal::Bool(ref b2), Token::EqualsEquals) => Ok(Literal::Bool(*b == *b2)),
-        (&Literal::Bool(ref b), &Literal::Bool(ref b2), Token::BangEquals) => Ok(Literal::Bool(*b != *b2)),
+        (&Literal::Bool(ref b), &Literal::Bool(ref b2), Token::EqualsEquals) => New(Literal::Bool(*b == *b2)),
+        (&Literal::Bool(ref b), &Literal::Bool(ref b2), Token::BangEquals) => New(Literal::Bool(*b != *b2)),
 
-        // assign
-        (&Literal::Variable(ref name), &Literal::Num(ref i), Token::Equals) => {
-          self.set_variable(name, Literal::Num(*i));
-          Ok(Literal::Num(*i))
-        },
-        (&Literal::Variable(ref name), &Literal::String(ref i), Token::Equals) => {
-          self.set_variable(name, Literal::String(i.clone()));
-          Ok(Literal::String(i.clone()))
-        },
-        (&Literal::Variable(ref name), &Literal::Bool(ref i), Token::Equals) => {
-          self.set_variable(name, Literal::Bool(*i));
-          Ok(Literal::Bool(*i))
-        },
-        (&Literal::Variable(ref name), &Literal::Nil, Token::Equals) => {
-          self.set_variable(name, Literal::Nil);
-          Ok(Literal::Nil)
+        (&Literal::Variable(ref name), _, Token::Equals) => {
+          self.set_variable(name, nright);
+          // println!("vars: {:?}", (*self.get_root_point()).variables);
+          Ref(nright)
         },
 
         _ => {
@@ -420,18 +430,22 @@ impl Interpreter {
             }
           };
 
+          println!("err: {:?}, {:?}", *left, *right);
+
           let point: *mut Interpreter = self as *mut Interpreter;
           let get_var = |name: &str| -> Option<*const Literal> {
-            unsafe {
-              (*point).get_variable(name)
-            }
+            (*point).get_variable(name)
           };
 
-          Err(InterpreterErr::ArithmeticErr(get_type(&get_var, left, left_pos)?, get_type(&get_var, right, right_pos)?, operation.0, operation.1))
+          Error(InterpreterErr::ArithmeticErr(get_type(&get_var, left, left_pos)?, get_type(&get_var, right, right_pos)?, operation.0, operation.1))
         }
-      }?;
+      };
 
-      Ok(self.save_value(literal))
+      match literal_return {
+        ExpressionReturnType::Error(err) => Err(err),
+        ExpressionReturnType::New(literal) => Ok(self.save_value(literal)),
+        ExpressionReturnType::Ref(reference) => Ok(reference)
+      }
     }
   }
 }
