@@ -1,3 +1,5 @@
 a = fn(b) {
-  "hello"
-}
+  print! "hello"
+};
+
+a(5)

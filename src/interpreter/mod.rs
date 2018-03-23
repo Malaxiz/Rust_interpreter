@@ -121,6 +121,7 @@ impl Interpreter {
   }
 
   pub fn exec(&mut self, program: &Vec<Box<Declaration>>) -> Result<Literal, InterpreterErr> {
+    println!("{:?}", *program);
     let res = self.exec_program(program)?;
     unsafe {
       Ok((*res).clone())

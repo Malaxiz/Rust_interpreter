@@ -36,8 +36,8 @@ pub enum Expression {
   // parameters, body
   FunctionExpr(Vec<String>, Vec<Box<Declaration>>),
 
-  // name, arguments
-  FunctionCallExpr(String, Vec<String>),
+  // function expression, arguments
+  FunctionCallExpr(Box<Expression>, Vec<Box<Expression>>),
 
   PrintExpr(Box<Expression>, i32),
 }
@@ -131,8 +131,35 @@ impl<'a> Grammar {
   }
 
   pub fn expression(&mut self) -> Result<Expression, ParserErr> {
-    let res = self.assign()?;
+    let res = self.func_call_expr()?;
     Ok(res)
+  }
+
+  fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
+    let expr = self.assign()?;
+
+    if let Some((_, identifier_pos)) = self.do_match(&[Token::ParOpen]) {
+      let mut args: Vec<Box<Expression>> = Vec::new();
+      loop {
+        if let Some(_) = self.do_match(&[Token::ParClose]) {
+          break;
+        }
+
+        args.push(Box::new(self.expression()?));
+
+        if let None = self.do_match(&[Token::Comma]) {
+          if let None = self.do_match(&[Token::ParClose]) {
+            return Err(ParserErr::GrammarError(01234));
+          } else {
+            break;
+          }
+        }
+      }
+      return Ok(Expression::FunctionCallExpr(Box::new(expr), args));
+    }
+
+    // let expr = self.print_expr()?;
+    Ok(expr)
   }
 
   fn assign(&mut self) -> Result<Expression, ParserErr> {
@@ -145,89 +172,6 @@ impl<'a> Grammar {
 
     Ok(expr)
   }
-
-  // fn func_expr(&mut self) -> Result<Expression, ParserErr> {
-  //   let mut err: Option<ParserErr> = None;
-
-  //   if let Some((_, pos)) = self.do_match(&[ParOpen]) { // todo: redo
-  //     let par_pos = pos;
-  //     let revert_to = self.current - 1;
-
-  //     let function = unsafe {
-  //       (|self_point: *mut Self| -> Result<(Vec<String>, Vec<Box<Declaration>>), ParserErr> {
-  //         let mut last_par = 0;
-  //         let mut parameters: Vec<String> = Vec::new();
-  //         while let Some((_operator, pos)) = (*self_point).do_match(&[Identifier]) {
-  //           if let &Lexed::Identifier(ref name, _) = &(*self_point).lexed[(*self_point).current - 1] {
-  //             parameters.push(name.to_string());
-  //             if let None = (*self_point).do_match(&[Comma]) {
-  //               if let Some((_, pos)) = (*self_point).do_match(&[ParClose]) {
-  //                 last_par = pos;
-  //               } else {
-  //                 return Err(ParserErr::MismatchedParenthesis(par_pos));
-  //               }
-  //               break;
-  //             }
-  //           } else {
-  //             return Err(ParserErr::ExpectedIdentifier(pos));
-  //           }
-  //         }
-
-  //         println!("here");
-
-  //         let mut decls: Vec<Box<Declaration>> = Vec::new();
-  //         if let Some(_) = (*self_point).do_match(&[Arrow]) {
-  //           if let Some(_) = (*self_point).do_match(&[BraceOpen]) {
-  //             while let None = (*self_point).do_match(&[BraceClose]) {
-  //               decls.push(Box::new((*self_point).declaration()?));
-  //             }
-  //           } else {
-  //             decls.push(Box::new((*self_point).declaration()?));
-  //           }
-  //           return Ok((parameters, decls));
-  //         } else {
-  //           return Err(ParserErr::ExpectedArrow(last_par));
-  //         }
-  //       })(self)
-  //     };
-
-  //     println!("{:?}", function);
-
-  //     if let Ok((parameters, decls)) = function {
-  //       return Ok(Expression::FunctionExpr(parameters, decls));
-  //     } else if let Err(val) = function {
-  //       err = Some(val);
-  //       self.current = revert_to;
-  //     }
-  //   }
-
-  //   let expr = self.func_call_expr();
-
-  //   match expr {
-  //     Ok(val) => {
-  //       Ok(val)
-  //     },
-  //     Err(val) => {
-  //       if let Some(errf) = err {
-  //         Err(errf)
-  //       } else {
-  //         Err(val)
-  //       }
-  //     }
-  //   }
-
-  //   // if let Ok(val) = expr {
-  //   //   Ok(val)
-  //   // } else {
-  //   //   if let Err(val) = expr {
-  //   //     Err(if let Some(errf) = err {
-  //   //       errf
-  //   //     } else {
-  //   //       val
-  //   //     })
-  //   //   }
-  //   // }
-  // }
   
   fn func_expr(&mut self) -> Result<Expression, ParserErr> {
     if let Some((_, pos)) = self.do_match(&[Func]) {
@@ -256,8 +200,6 @@ impl<'a> Grammar {
         }
       }
 
-      println!("{:?}", parameters);
-
       if let Some(_) = self.do_match(&[BraceOpen]) {
         let mut body: Vec<Box<Declaration>> = Vec::new();
         while let None = self.do_match(&[BraceClose]) {
@@ -265,25 +207,13 @@ impl<'a> Grammar {
         }
 
         let fexpr = Expression::FunctionExpr(parameters, body);
-
-        println!("{:?}", fexpr);
         return Ok(fexpr);
       } else {
         return Err(ParserErr::ExpectedBraceOpen(pos));
       }
     }
 
-    Ok(self.func_call_expr()?)
-  }
-
-  fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
-    let expr = self.print_expr()?;
-
-    // if let Some((_operator, pos)) = self.do_match(&[Token::ParOpen]) {
-
-    // }
-
-    Ok(expr)
+    Ok(self.print_expr()?)
   }
 
   fn print_expr(&mut self) -> Result<Expression, ParserErr> {
