@@ -50,22 +50,32 @@ enum GcSize {
 
 pub struct Root {
   variables: Vec<Box<Literal>>,
-  scopes: Vec<*mut Interpreter>
+  scopes: Vec<*mut Interpreter>,
+
+  variable_stack: Vec<*const Literal>
 }
 
 impl Root {
   pub fn new() -> Self {
     Self {
       variables: Vec::new(),
-      scopes: Vec::new()
+      scopes: Vec::new(),
+      variable_stack: Vec::new()
     }
   }
 
   fn gc(&mut self, size: GcSize) { // garbage collect
-    self.variables.retain(|ref x| match ***x {
-      Literal::Variable(_) => false,
-      _ => true
-    });
+    unsafe {
+      let self_point: *mut Self = self;
+      self.variables.retain(|ref x| match ***x {
+        Literal::Variable(_) => {
+          let a = (*self_point).variable_stack.iter().any(|ref y| **y == &(***x) as *const Literal);
+          // println!("{}", a);
+          a
+        },
+        _ => true
+      });
+    }
 
     // if let GcSize::Hard = size {
     //   self.variables.retain(|ref x| match ***x {
@@ -149,8 +159,6 @@ impl Interpreter {
 
   fn exec_expr(&mut self, expression: &Expression) -> Result<*const Literal, InterpreterErr> {
     unsafe {
-      // (*self.get_root_point()).gc(GcSize::Easy);
-
       let res = self.exec_binary(expression)?;
       let res: &Literal = &*res;
       let res = match res {
@@ -184,9 +192,22 @@ impl Interpreter {
           Expression::Primary(_, pos) => pos,
           _ => 0
         };
+
         let left = self.exec_binary(&*left)?;
+        unsafe {
+          (*self.get_root_point()).variable_stack.push(left);
+        }
+
         let right = self.exec_binary(&*right)?;
-        self.literal_math(left, right, token, left_pos, right_pos)
+        let result = self.literal_math(left, right, token, left_pos, right_pos);
+
+        unsafe {
+          let root_point = self.get_root_point();
+          (*root_point).gc(GcSize::Easy);
+          (*root_point).variable_stack.retain(|ref x| **x == left);
+        }
+
+        result
       },
       &Expression::Primary(ref literal, _pos) => {
         match literal {
