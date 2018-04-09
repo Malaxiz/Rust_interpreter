@@ -64,7 +64,7 @@ pub fn exec(query: &str, vm: &mut VM) -> Result<String, LangErr> {
   let result = do_exec(query, vm);
   match result {
     Err(ref err) => {
-      // println!("{:?}", err);
+      println!("{:?}", err);
       handle_err::handle_err(err, query)
     },
     _ => {}
@@ -74,7 +74,7 @@ pub fn exec(query: &str, vm: &mut VM) -> Result<String, LangErr> {
 }
 
 pub fn exec_program(program: &str, vm: &mut VM) {
-  
+
 }
 
 #[cfg(test)]
