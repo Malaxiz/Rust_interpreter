@@ -7,11 +7,13 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-use lang::interpreter::Interpreter;
+// use lang::interpreter::Interpreter;
+use lang::vm::VM;
 
 fn main() {
 
-  let mut interpreter = Interpreter::new();
+  // let mut interpreter = Interpreter::new();
+  let mut vm = VM::new();
 
   let mut f = File::open("test.lang")
     .expect("file not found");
@@ -20,7 +22,8 @@ fn main() {
   f.read_to_string(&mut contents)
     .expect("something went wrong reading the file");
 
-  lang::exec(&contents, &mut interpreter);
+  lang::exec(&contents, &mut vm);
+  
 
   loop {
     print!("> ");
@@ -31,7 +34,7 @@ fn main() {
       .expect("Failed to read line");
 
     query.pop().unwrap();
-    match lang::exec(&query, &mut interpreter) {
+    match lang::exec(&query, &mut vm) {
       Ok(res) => print!("{}\n", res),
       Err(_) => {}
     };

@@ -93,35 +93,41 @@ pub struct Interpreter {
 
 impl Drop for Interpreter {
   fn drop(&mut self) {
-    println!("dropping: {:?}", self as *mut Interpreter);
+    // println!("dropping: {:?}", self as *mut Interpreter);
   }
 }
 
 impl Interpreter {
   pub fn new() -> Self {
-    // let root_obj = if let Some(val) = root {
-    //   val
-    // } else {
-    //   Box::new(Root::new())
-    // };
-
-    Self {
+    let mut s = Self {
       variables: HashMap::new(),
       parent: None,
       root: RootType::Root(Root::new())
+    };
+    s.push_root_scope();
+    s
+  }
+
+  fn push_root_scope(&mut self) {
+    let self_point: *mut Self = self;
+    unsafe {
+      match (*self_point).root {
+        RootType::Root(ref mut val) => val.scopes.push(self as *mut Self),
+        _ => {}
+      }
     }
   }
 
-  fn new_scoped(parent: *mut Interpreter, root: RootType) -> Self {
+  fn new_scoped(parent: Option<*mut Interpreter>, root: RootType) -> Self {
     Self {
       variables: HashMap::new(),
-      parent: Some(parent),
+      parent: parent,
       root
     }
   }
 
   pub fn exec(&mut self, program: &Vec<Box<Declaration>>) -> Result<Literal, InterpreterErr> {
-    println!("{:?}", *program);
+    // println!("program: {:#?}", *program);
     let res = self.exec_program(program)?;
     unsafe {
       Ok((*res).clone())
@@ -164,6 +170,7 @@ impl Interpreter {
       let res: &Literal = &*res;
       let res = match res {
         &Literal::Variable(ref name) => {
+          // print!("name: {}, var: {:?}", name, self.get_variable(name as &str));
           if let Some(val) = self.get_variable(name as &str) {
             val
           } else {
@@ -171,6 +178,7 @@ impl Interpreter {
               &Expression::Primary(_, ref pos) => *pos,
               _ => 0
             };
+            // println!("what");
             return Err(InterpreterErr::IdentifierNotFound(String::from(name as &str), pos)) // temp design choice ?
             // Literal::Nil
           }
@@ -267,18 +275,47 @@ impl Interpreter {
           Ok(res)
         }
       },
-      &Expression::FunctionExpr(ref parameters, ref body) => {
+      &Expression::FunctionExpr(ref parameters, ref body, _pos) => {
         let mut decls: Vec<*const Declaration> = Vec::new();
         for ref i in body {
           decls.push(&***i as *const Declaration);
+          println!("decl: {:?}", i);
         }
         let func = Literal::Function((*parameters).clone(), decls);
         
         Ok(self.save_value(func))
         // Err(InterpreterErr::TempError)
       },
-      &Expression::FunctionCallExpr(ref name, ref arguments) => {
-        Err(InterpreterErr::TempError)
+      &Expression::FunctionCallExpr(ref func, ref args, pos) => {
+        unsafe {
+          let func = &*self.exec_expr(func)?;
+          let func = self.cast_func(func, pos)?;
+          match *func {
+            Literal::Function(ref parameters, ref body) => {
+              println!("body: {:?}", *body[0]);
+              let mut scope = self.get_limited_scope();
+              for (k, v) in parameters.iter().enumerate() {
+                if args.len() > k {
+                  scope.set_variable_directly(v, self.exec_expr(&args[k])?);
+                } else {
+                  scope.set_variable_directly(v, &NIL as *const Literal);
+                }
+              }
+
+
+              let mut last_item: *const Literal = &NIL;
+              for i in body {
+                println!("executing: {:?}", &**i);
+                last_item = scope.exec_decl(&**i)?;
+              }
+
+              println!("here70");
+
+              return Ok(last_item)
+            },
+            _ => return Err(InterpreterErr::TempError)
+          };
+        }
       }
     }
   }
@@ -289,12 +326,23 @@ impl Interpreter {
       // (*root_point).gc(GcSize::Hard);
     }
 
-    let mut scope = Box::new(Interpreter::new_scoped(self, RootType::RootRef(root_point)));
+    let mut scope = Box::new(Interpreter::new_scoped(Some(self), RootType::RootRef(root_point)));
     let scope_point: *mut Interpreter = &mut *scope;
     unsafe {
       (*root_point).scopes.push(scope_point);
     }
     scope
+  }
+
+  fn get_limited_scope(&mut self) -> Box<Interpreter> {
+    let root_point = self.get_root_point();
+    unsafe {
+      // (*root_point).gc(GcSize::Hard);
+      let mut scope = Box::new(Interpreter::new_scoped(None, RootType::RootRef(root_point)));
+      let scope_point: *mut Interpreter = &mut *scope;
+      (*root_point).scopes.push(scope_point);
+      scope
+    }
   }
 
   fn get_variable(&mut self, name: &str) -> Option<*const Literal> {
@@ -354,6 +402,10 @@ impl Interpreter {
     }
   }
 
+  fn set_variable_directly(&mut self, name: &str, literal: *const Literal) {
+    self.variables.insert(name.to_string(), literal);
+  }
+
   fn cast_bool(&self, literal: *const Literal, pos: i32) -> Result<bool, InterpreterErr> {
     unsafe {
       match &*literal {
@@ -364,6 +416,20 @@ impl Interpreter {
         &Literal::Function(ref parameters, _) => return Err(InterpreterErr::CastErr(format!("<function ({:?})>", parameters), "bool".to_string(), pos)),
 
         &Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable".to_string(), "bool".to_string(), pos)), // should not happen
+      }
+    }
+  }
+
+  fn cast_func(&self, literal: *const Literal, pos: i32) -> Result<*const Literal, InterpreterErr> {
+    unsafe {
+      match &*literal {
+        &Literal::Bool(b) => return Err(InterpreterErr::CastErr("bool".to_string(), "func".to_string(), pos)),
+        &Literal::Nil => return Err(InterpreterErr::CastErr("nil".to_string(), "func".to_string(), pos)),
+        &Literal::Num(_) => return Err(InterpreterErr::CastErr("num".to_string(), "func".to_string(), pos)),
+        &Literal::String(_) => return Err(InterpreterErr::CastErr("string".to_string(), "func".to_string(), pos)),
+        &Literal::Function(_, _) => Ok(literal),
+
+        &Literal::Variable(_) => return Err(InterpreterErr::CastErr("variable".to_string(), "func".to_string(), pos)), // should not happen
       }
     }
   }

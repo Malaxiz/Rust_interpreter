@@ -3,7 +3,6 @@
 pub mod info;
 pub mod grammar;
 
-// pub use self::grammar::Program;
 pub use self::grammar::Declaration;
 pub use self::grammar::Statement;
 pub use self::grammar::Expression;

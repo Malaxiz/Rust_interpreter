@@ -3,7 +3,7 @@ extern crate ansi_term;
 use LangErr;
 use lexer::LexErr;
 use parser::ParserErr;
-use interpreter::InterpreterErr;
+use vm::VMError;
 
 fn print_err(title: &str, err_pos: i32, width: i32, description: &str, query: &str) {
   let query_vec: Vec<&str> = query.split('\n').collect();
@@ -136,41 +136,46 @@ fn parser_err(err: &ParserErr, query: &str) {
   print_err(title, err_pos, width, &description, query);
 }
 
-fn interpreter_err(err: &InterpreterErr, query: &str) {
-  let mut title = "";
-  let mut err_pos = -1;
-  let mut width = 1;
-  let mut description = String::from("");
+// fn interpreter_err(err: &InterpreterErr, query: &str) {
+//   let mut title = "";
+//   let mut err_pos = -1;
+//   let mut width = 1;
+//   let mut description = String::from("");
 
-  match err {
-    &InterpreterErr::ArithmeticErr(ref left, ref right, ref operation, ref pos) => {
-      title = "Interpreter error: ArithmeticErr";
-      err_pos = *pos;
-      description = format!("opereration \"{:?}\" not defined for types: \"{}\", \"{}\"", operation, left, right);
-    },
-    &InterpreterErr::IdentifierNotFound(ref identifier, ref pos) => {
-      title = "Interpreter error: IdentifierNotFound";
-      err_pos = *pos;
-      description = format!("identifier \"{}\" not found in this scope", identifier);
-    },
-    &InterpreterErr::CastErr(ref type1, ref type2, ref pos) => {
-      title = "Interpreter error: CastErr";
-      err_pos = *pos;
-      description = format!("cannot cast type \"{}\" into \"{}\"", type1, type2);
-    }
-    _ => {
-      title = "Interpreter error!";
-      description = format!("{:?}", err);
-    }
-  }
+//   match err {
+//     &InterpreterErr::ArithmeticErr(ref left, ref right, ref operation, ref pos) => {
+//       title = "Interpreter error: ArithmeticErr";
+//       err_pos = *pos;
+//       description = format!("opereration \"{:?}\" not defined for types: \"{}\", \"{}\"", operation, left, right);
+//     },
+//     &InterpreterErr::IdentifierNotFound(ref identifier, ref pos) => {
+//       title = "Interpreter error: IdentifierNotFound";
+//       err_pos = *pos;
+//       description = format!("identifier \"{}\" not found in this scope", identifier);
+//     },
+//     &InterpreterErr::CastErr(ref type1, ref type2, ref pos) => {
+//       title = "Interpreter error: CastErr";
+//       err_pos = *pos;
+//       description = format!("cannot cast type \"{}\" into \"{}\"", type1, type2);
+//     }
+//     _ => {
+//       title = "Interpreter error!";
+//       description = format!("{:?}", err);
+//     }
+//   }
 
-  print_err(title, err_pos, width, &description, query);
+//   print_err(title, err_pos, width, &description, query);
+// }
+
+fn vm_err(err: &VMError, query: &str) {
+
 }
 
 pub fn handle_err(err: &LangErr, query: &str) {
   match err {
     &LangErr::LexErr(ref err) => lexer_err(err, query),
     &LangErr::ParserErr(ref err) => parser_err(err, query),
-    &LangErr::InterpreterErr(ref err) => interpreter_err(err, query),
+    // &LangErr::InterpreterErr(ref err) => interpreter_err(err, query),
+    &LangErr::VMError(ref err) => vm_err(err, query)
   }
 }

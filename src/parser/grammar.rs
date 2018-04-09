@@ -34,10 +34,10 @@ pub enum Expression {
   WhileExpr(Box<Expression>, Vec<Box<Declaration>>, i32, i32),
 
   // parameters, body
-  FunctionExpr(Vec<String>, Vec<Box<Declaration>>),
+  FunctionExpr(Vec<String>, Vec<Box<Declaration>>, i32),
 
   // function expression, arguments
-  FunctionCallExpr(Box<Expression>, Vec<Box<Expression>>),
+  FunctionCallExpr(Box<Expression>, Vec<Box<Expression>>, i32),
 
   PrintExpr(Box<Expression>, i32),
 }
@@ -138,7 +138,7 @@ impl<'a> Grammar {
   fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
     let expr = self.assign()?;
 
-    if let Some((_, identifier_pos)) = self.do_match(&[Token::ParOpen]) {
+    if let Some((_, call_pos)) = self.do_match(&[Token::ParOpen]) {
       let mut args: Vec<Box<Expression>> = Vec::new();
       loop {
         if let Some(_) = self.do_match(&[Token::ParClose]) {
@@ -155,7 +155,7 @@ impl<'a> Grammar {
           }
         }
       }
-      return Ok(Expression::FunctionCallExpr(Box::new(expr), args));
+      return Ok(Expression::FunctionCallExpr(Box::new(expr), args, call_pos));
     }
 
     // let expr = self.print_expr()?;
@@ -174,7 +174,7 @@ impl<'a> Grammar {
   }
   
   fn func_expr(&mut self) -> Result<Expression, ParserErr> {
-    if let Some((_, pos)) = self.do_match(&[Func]) {
+    if let Some((_, func_pos)) = self.do_match(&[Func]) {
       let mut parameters: Vec<String> = Vec::new();
       if let Some((_, par_pos)) = self.do_match(&[ParOpen]) {
         loop {
@@ -206,10 +206,10 @@ impl<'a> Grammar {
           body.push(Box::new(self.declaration()?));
         }
 
-        let fexpr = Expression::FunctionExpr(parameters, body);
+        let fexpr = Expression::FunctionExpr(parameters, body, func_pos);
         return Ok(fexpr);
       } else {
-        return Err(ParserErr::ExpectedBraceOpen(pos));
+        return Err(ParserErr::ExpectedBraceOpen(func_pos));
       }
     }
 
