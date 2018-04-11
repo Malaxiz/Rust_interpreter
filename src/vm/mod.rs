@@ -1,5 +1,6 @@
 extern crate num;
 use self::num::FromPrimitive;
+use std::str;
 
 use parser::Declaration;
 
@@ -10,15 +11,12 @@ pub mod build;
 pub mod exec;
 
 use vm::build::VMBuild;
-use vm::exec::VMExec;
-use vm::exec::Value;
+use vm::exec::{VMExec, Value};
 
 use self::OPCode::*;
 
-pub use vm::build::VMBuildError;
-pub use vm::build::VMBuildError::*;
-pub use vm::exec::VMExecError;
-pub use vm::exec::VMExecError::*;
+pub use vm::build::{VMBuildError, VMBuildError::*};
+pub use vm::exec::{VMExecError, VMExecError::*};
 
 use std::slice;
 use std::mem;
@@ -59,8 +57,10 @@ enum_from_primitive! {
     PUSH_STRING,
 
     POP,
-
     PEEK,
+
+    JUMP,
+    JUMPIF,
 
     // operation on top two stack values.
     // ( )
@@ -69,6 +69,11 @@ enum_from_primitive! {
     ADD,
     SUB,
     MULTIPLY,
+
+    LT,
+    GT,
+    LTOREQ,
+    GTOREQ,
   }
 }
 
@@ -80,9 +85,73 @@ bitflags! {
 }
 
 #[derive(Debug)]
+pub enum OperationLiteral {
+  Num(f64),
+  String(String, usize),
+
+  None
+}
+
+#[derive(Debug)]
 pub struct Operation {
   code: Option<OPCode>,
   val: u8,
+  content: OperationLiteral
+}
+
+pub fn get_ops(bytes: Vec<u8>) -> Program {
+  let mut program = Vec::new();
+  let mut i = 0;
+  while(i < bytes.len()) {
+    let op = bytes[i];
+
+    let code = OPCode::from_i32(op as i32);
+    let mut content = unsafe {
+      match code {
+        Some(val) => match val {
+          PUSH_NUM => {
+            let mut content_vec: [u8; 8] = [0x00; 8];
+            for j in 0..8 {
+              let op = bytes[i+j+1];
+              content_vec[j] = op;
+            }
+            let asdf = OperationLiteral::Num(mem::transmute::<[u8; 8], f64>(content_vec));
+            println!("literal: {:?}", asdf);
+            asdf
+          },
+          PUSH_STRING => {
+            let mut content_vec: Vec<u8> = Vec::new();
+            let mut j = 0;
+            loop {
+              let op = bytes[i+j+1];
+              if op == u(NULL) {
+                break;
+              }
+              content_vec.push(op);
+              j += 1;
+            }
+            let s = String::from(match str::from_utf8(&content_vec) {
+              Ok(v) => v,
+              Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+            });
+            let len = s.len() + 1; // + 1 null terminator
+            OperationLiteral::String(s, len)
+          },
+          _ => OperationLiteral::None
+        },
+        None => OperationLiteral::None
+      }
+    };
+
+    program.push(Operation {
+      code,
+      val: op,
+      content
+    });
+    i += 1;
+  }
+
+  program
 }
 
 pub struct VM {

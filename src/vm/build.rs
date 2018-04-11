@@ -2,10 +2,7 @@ use vm::*;
 
 use lexer::Literal;
 
-pub use parser::Declaration;
-pub use parser::Statement;
-pub use parser::Expression;
-pub use parser::Primary;
+pub use parser::{Declaration, Statement, Expression, Primary};
 
 #[derive(Debug)]
 pub enum VMBuildError {
@@ -156,11 +153,13 @@ impl VMBuild {
     let mut file = File::create("foo.ops").unwrap();
     file.write_all(&program).unwrap();
 
-    let program: Program = program.iter().map(|c| Operation {
-      code: OPCode::from_i32(*c as i32),
-      val: *c
-    }).collect();
+    Ok(get_ops(program))
 
-    Ok(program)
+    // let program: Program = program.iter().map(|c| Operation {
+    //   code: OPCode::from_i32(*c as i32),
+    //   val: *c
+    // }).collect();
+
+    // Ok(program)
   }
 }

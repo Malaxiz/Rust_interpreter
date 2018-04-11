@@ -1,5 +1,3 @@
-use std::str;
-
 use vm::*;
 use vm::OPCode::*;
 use enum_primitive::FromPrimitive;
@@ -10,6 +8,10 @@ pub enum VMExecError {
   UnsupportedOperation(Literal, Literal, OPCode, i32),
   InvalidOPCode(String),
   UnsupportedOPCode(String),
+
+  // position in bytecode
+  InvalidOperationContent(usize),
+
   Temp
 }
 
@@ -49,7 +51,7 @@ impl Root {
 
 pub struct VMExec {
   op_i: usize,
-  program: Program,
+  program: Vec<Operation>,
 
   root: Root,
   stack: [*const Value; 512],
@@ -164,19 +166,14 @@ impl VMExec {
     // println!("root: {:?}", self.root.pool);
     // self.program = program;
 
-    let mut program = vec![];
+    let mut bytes = vec![];
     let mut f = File::open("foo.ops").unwrap();
     for byte in f.bytes() {
-      program.push(byte.unwrap());
+      bytes.push(byte.unwrap());
     }
 
-    let program: Program = program.iter().map(|c| Operation {
-      code: OPCode::from_i32(*c as i32),
-      val: *c
-    }).collect();
-
+    let mut program = get_ops(bytes);
     println!("{:#?}", program);
-
     self.program = program; // temp
 
     let mut meta_end = false;
@@ -189,6 +186,7 @@ impl VMExec {
         &((*self_point).program[self.op_i])
       };
       let code: &Option<OPCode> = &op.code;
+      let content = &op.content;
 
       if let &Some(ref code) = code {
         if !meta_end {
@@ -233,16 +231,20 @@ impl VMExec {
             }
           },
           PUSH_NUM => {
-            let mut num: [u8; 8] = [0x00; 8];
-            for k in 0..8 {
-              num[k] = self.consume();
-            }
+            // let mut num: [u8; 8] = [0x00; 8];
+            // for k in 0..8 {
+            //   num[k] = self.consume();
+            // }
 
-            let num = unsafe {
-              mem::transmute::<[u8; 8], f64>(num)
-            };
+            // let num = unsafe {
+            //   mem::transmute::<[u8; 8], f64>(num)
+            // };
 
-            let val = Box::new(Value::Literal(Literal::Num(num)));
+            let val = Box::new(Value::Literal(Literal::Num(match content {
+              &OperationLiteral::Num(num) => num,
+              _ => return Err(VMExecError::InvalidOperationContent(self.op_i))
+            })));
+            self.op_i += 8; // offset of f64
             let val_point = &*val as *const Value;
             self.root.pool.push(val);
             self.stack_push(val_point);
@@ -256,21 +258,27 @@ impl VMExec {
             self.stack_push(val_point);
           },
           PUSH_STRING => {
-            let mut s: Vec<u8> = Vec::new();
-            loop {
-              let next = self.consume();
-              if next == u(NULL) {
-                break;
-              }
-              s.push(next);
-            }
+            // let mut s: Vec<u8> = Vec::new();
+            // loop {
+            //   let next = self.consume();
+            //   if next == u(NULL) {
+            //     break;
+            //   }
+            //   s.push(next);
+            // }
 
-            let s = match str::from_utf8(&s) {
-              Ok(v) => v,
-              Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-            };
+            // let s = match str::from_utf8(&s) {
+            //   Ok(v) => v,
+            //   Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+            // };
 
-            let val = Box::new(Value::Literal(Literal::String(String::from(s))));
+            let val = Box::new(Value::Literal(Literal::String(match content {
+              &OperationLiteral::String(ref s, len) => {
+                self.op_i += len; // offset of string
+                s.to_owned()
+              },
+              _ => return Err(VMExecError::InvalidOperationContent(self.op_i))
+            })));
             let val_point = &*val as *const Value;
             self.root.pool.push(val);
             self.stack_push(val_point);
