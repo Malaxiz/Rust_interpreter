@@ -166,6 +166,7 @@ impl Interpreter {
 
   fn exec_expr(&mut self, expression: &Expression) -> Result<*const Literal, InterpreterErr> {
     unsafe {
+      println!("exec_expr: {:?}", expression);
       let res = self.exec_binary(expression)?;
       let res: &Literal = &*res;
       let res = match res {
@@ -178,7 +179,7 @@ impl Interpreter {
               &Expression::Primary(_, ref pos) => *pos,
               _ => 0
             };
-            // println!("what");
+            println!("what");
             return Err(InterpreterErr::IdentifierNotFound(String::from(name as &str), pos)) // temp design choice ?
             // Literal::Nil
           }
@@ -191,6 +192,8 @@ impl Interpreter {
   }
 
   fn exec_binary(&mut self, expression: &Expression) -> Result<*const Literal, InterpreterErr> {
+    // println!("binary: {:?}", expression);
+
     match expression {
       &Expression::Binary(ref left, ref token, ref right) => {
         let left_pos = match **left {
@@ -221,6 +224,7 @@ impl Interpreter {
       &Expression::Primary(ref literal, _pos) => {
         match literal {
           &Primary::Identifier(ref identifier) => {
+            println!("identifier: {}", identifier);
             let val_pointer = self.save_value(Literal::Variable(identifier.clone()));
             Ok(val_pointer)
           },
@@ -288,12 +292,13 @@ impl Interpreter {
       },
       &Expression::FunctionCallExpr(ref func, ref args, pos) => {
         unsafe {
+          // println!("vars: {:?}", (*self.get_root_point()).variables);
           let func = &*self.exec_expr(func)?;
           let func = self.cast_func(func, pos)?;
           match *func {
             Literal::Function(ref parameters, ref body) => {
               println!("body: {:?}", *body[0]);
-              let mut scope = self.get_limited_scope();
+              let mut scope = self.get_scope();
               for (k, v) in parameters.iter().enumerate() {
                 if args.len() > k {
                   scope.set_variable_directly(v, self.exec_expr(&args[k])?);
@@ -349,6 +354,7 @@ impl Interpreter {
     if name == "vars" { // temp?
       unsafe {
         let self_point: *mut Self = self;
+        (*(*self_point).get_root_point()).gc(GcSize::Hard);
         return Some(self.save_value(Literal::String(format!("{:?}", (*(*self_point).get_root_point()).variables))));
       }
     }

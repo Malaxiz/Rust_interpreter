@@ -1,11 +1,4 @@
-//a = fn(b) {
-//  print! "hello"
-//};
-
-//a(5)
-
 a = fn(b) {
   b
 };
 
-print! a(50)
