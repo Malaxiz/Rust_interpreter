@@ -6,6 +6,9 @@ pub mod parser;
 pub mod interpreter;
 pub mod vm;
 
+use std::fs::File;
+use std::io::prelude::*;
+
 use interpreter::Interpreter;
 use vm::VM;
 use vm::BuildOptions;
@@ -35,30 +38,31 @@ fn do_exec(query: &str, interpreter: &mut VM) -> Result<String, LangErr> {
   };
   // println!("{:?}", parsed);
 
-  let built = match interpreter.build(parsed, String::from(query), BuildOptions::DEBUG) {
+  let instructions = match interpreter.build(parsed, String::from(query), BuildOptions::DEBUG) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::VMBuildErr(err))
   };
 
-  let executed = match interpreter.exec(built) {
+  {
+    let mut file = File::create("prog.lng").unwrap();
+    file.write_all(&instructions).unwrap();
+  }
+
+  // let program = vm::get_program(built);
+
+  let program = {
+    let mut bytes = vec![];
+    let mut f = File::open("prog.lng").unwrap();
+    for byte in f.bytes() {
+      bytes.push(byte.unwrap());
+    }
+    vm::get_program(bytes)
+  };
+
+  let executed = match interpreter.exec(program) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::VMExecErr(err))
   };
-
-  // let interpreted = match interpreter.exec(&parsed) {
-  //   Ok(val) => {
-  //     match val {
-  //       Literal::Bool(b) => String::from(if b { "true" } else { "false" }),
-  //       Literal::String(s) => s,
-  //       Literal::Num(n) => n.to_string(),
-  //       Literal::Nil => String::from("nil"),
-  //       Literal::Function(parameters, body) => format!("<function ({:?})>", parameters),
-
-  //       Literal::Variable(v) => String::from("variable")
-  //     }
-  //   },
-  //   Err(err) => return Err(LangErr::InterpreterErr(err))
-  // };
 
   Ok(executed)
 }

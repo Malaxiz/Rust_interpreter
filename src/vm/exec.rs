@@ -164,17 +164,7 @@ impl VMExec {
   pub fn exec(&mut self, program: Program) -> Result<String, VMExecError> {
     self.reset();
     // println!("root: {:?}", self.root.pool);
-    // self.program = program;
-
-    let mut bytes = vec![];
-    let mut f = File::open("foo.ops").unwrap();
-    for byte in f.bytes() {
-      bytes.push(byte.unwrap());
-    }
-
-    let mut program = get_ops(bytes);
-    println!("{:#?}", program);
-    self.program = program; // temp
+    self.program = program;
 
     let mut meta_end = false;
     let mut is_debug = false;
@@ -231,15 +221,6 @@ impl VMExec {
             }
           },
           PUSH_NUM => {
-            // let mut num: [u8; 8] = [0x00; 8];
-            // for k in 0..8 {
-            //   num[k] = self.consume();
-            // }
-
-            // let num = unsafe {
-            //   mem::transmute::<[u8; 8], f64>(num)
-            // };
-
             let val = Box::new(Value::Literal(Literal::Num(match content {
               &OperationLiteral::Num(num) => num,
               _ => return Err(VMExecError::InvalidOperationContent(self.op_i))
@@ -251,27 +232,12 @@ impl VMExec {
           },
           PUSH_BOOL => {
             let b = self.consume();
-
             let val = Box::new(Value::Literal(Literal::Bool(if b >= 1 {true} else {false})));
             let val_point = &*val as *const Value;
             self.root.pool.push(val);
             self.stack_push(val_point);
           },
           PUSH_STRING => {
-            // let mut s: Vec<u8> = Vec::new();
-            // loop {
-            //   let next = self.consume();
-            //   if next == u(NULL) {
-            //     break;
-            //   }
-            //   s.push(next);
-            // }
-
-            // let s = match str::from_utf8(&s) {
-            //   Ok(v) => v,
-            //   Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-            // };
-
             let val = Box::new(Value::Literal(Literal::String(match content {
               &OperationLiteral::String(ref s, len) => {
                 self.op_i += len; // offset of string
@@ -288,8 +254,6 @@ impl VMExec {
             if is_debug {
               pos = Some(self.consume() as i32);
             }
-
-            // println!("pos: {}", pos);
 
             let second = self.stack_pop();
             let first = self.stack_pop();

@@ -55,8 +55,6 @@ impl VMBuild {
           &(_, pos) => pos
         };
 
-        // println!("pos: {:?}", pos);
-
         left.push(pos as u8);
         Ok(left)
       },
@@ -66,11 +64,9 @@ impl VMBuild {
             // println!("identifier: {}", identifier);
             // let val_pointer = self.save_value(Literal::Variable(identifier.clone()));
             // Ok(val_pointer)
-            Ok(vec![u(PUSH_NUM), 0x00])
+            Ok(vec![u(PUSH_BOOL), 0x00])
           },
           &Primary::Literal(ref literal) => {
-            // let val_pointer = self.save_value(literal.clone());
-            // Ok(val_pointer)
             match literal {
               &lexer::Literal::Num(num) => {
                 let bv: [u8; 8] = unsafe {
@@ -125,41 +121,19 @@ impl VMBuild {
     }
   }
 
-  pub fn build(&mut self, decls: Decls, query: String, options: BuildOptions) -> Result<Program, VMBuildError> {
-    // let mut program: Vec<u8> = vec![VERSION as u8, 0x01, DEBUG as u8, META_END as u8,
-    //                                 PUSH_INT as u8, 0x01, PUSH_INT as u8, 0x01, SUB as u8, 0x02,
-    //                                 END as u8,
-    //                                 DEBUG_CODE as u8,
-    //                                 '1' as u8, '+' as u8, '1' as u8, ';' as u8,
-    //                                 DEBUG_CODE_END as u8];
-
-    // let mut program: Vec<u8> = vec![u(VERSION), 0x01, u(DEBUG), u(META_END)];
-
+  pub fn build(&mut self, decls: Decls, query: String, options: BuildOptions) -> Result<Instructions, VMBuildError> {
     let mut program: Vec<u8> = vec![u(VERSION), 0x01, u(DEBUG), u(DEBUG_CODE)];
     let mut code = query.as_bytes().to_vec();
     program.append(&mut code);
     program.push(u(DEBUG_CODE_END));
     program.push(u(META_END));
 
-
     for i in decls {
-      // println!("{:?}", i);
       let mut built = self.build_decl(&*i)?;
       program.append(&mut built);
     }
     
     program.push(u(END));
-
-    let mut file = File::create("foo.ops").unwrap();
-    file.write_all(&program).unwrap();
-
-    Ok(get_ops(program))
-
-    // let program: Program = program.iter().map(|c| Operation {
-    //   code: OPCode::from_i32(*c as i32),
-    //   val: *c
-    // }).collect();
-
-    // Ok(program)
+    Ok(program)
   }
 }

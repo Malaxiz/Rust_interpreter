@@ -20,10 +20,9 @@ pub use vm::exec::{VMExecError, VMExecError::*};
 
 use std::slice;
 use std::mem;
-use std::fs::File;
-use std::io::prelude::*;
 
 pub type Program = Vec<Operation>;
+pub type Instructions = Vec<u8>;
 pub type Decls = Vec<Box<Declaration>>;
 
 const NIL: *const Value = &Value::NIL;
@@ -49,12 +48,10 @@ enum_from_primitive! {
     DEBUG_CODE,
     DEBUG_CODE_END,
 
-    // pushes an int.
-    // ( int )
-    // 
     PUSH_NUM,
     PUSH_BOOL,
     PUSH_STRING,
+    PUSH_VAR,
 
     POP,
     PEEK,
@@ -63,8 +60,6 @@ enum_from_primitive! {
     JUMPIF,
 
     // operation on top two stack values.
-    // ( )
-    // ( pos )
     ASSIGN,
     ADD,
     SUB,
@@ -99,7 +94,7 @@ pub struct Operation {
   content: OperationLiteral
 }
 
-pub fn get_ops(bytes: Vec<u8>) -> Program {
+pub fn get_program(bytes: Vec<u8>) -> Program {
   let mut program = Vec::new();
   let mut i = 0;
   while(i < bytes.len()) {
@@ -115,9 +110,7 @@ pub fn get_ops(bytes: Vec<u8>) -> Program {
               let op = bytes[i+j+1];
               content_vec[j] = op;
             }
-            let asdf = OperationLiteral::Num(mem::transmute::<[u8; 8], f64>(content_vec));
-            println!("literal: {:?}", asdf);
-            asdf
+            OperationLiteral::Num(mem::transmute::<[u8; 8], f64>(content_vec))
           },
           PUSH_STRING => {
             let mut content_vec: Vec<u8> = Vec::new();
@@ -170,7 +163,7 @@ impl VM {
     }
   }
 
-  pub fn build(&mut self, decls: Decls, code: String, options: BuildOptions) -> Result<Program, VMBuildError> {
+  pub fn build(&mut self, decls: Decls, code: String, options: BuildOptions) -> Result<Instructions, VMBuildError> {
     self.vm_build.build(decls, code, options)
   }
 
