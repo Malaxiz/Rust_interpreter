@@ -5,7 +5,6 @@ use parser::Declaration;
 
 pub use super::lexer;
 pub use lexer::Token;
-// pub use lexer::Literal;
 
 pub mod build;
 pub mod exec;
@@ -56,6 +55,8 @@ enum_from_primitive! {
     // ( int )
     // 
     PUSH_NUM,
+    PUSH_BOOL,
+    PUSH_STRING,
 
     POP,
 
@@ -84,22 +85,6 @@ pub struct Operation {
   val: u8,
 }
 
-struct Root {
-  pool: Vec<Box<Value>>
-}
-
-impl Root {
-  pub fn new() -> Self {
-    Self {
-      pool: Vec::new()
-    }
-  }
-
-  pub fn gc() {
-    // todo
-  }
-}
-
 pub struct VM {
   vm_exec: VMExec,
   vm_build: VMBuild
@@ -123,7 +108,4 @@ impl VM {
   pub fn exec(&mut self, program: Program) -> Result<String, VMExecError> {
     self.vm_exec.exec(program)
   }
-
-  
-
 }

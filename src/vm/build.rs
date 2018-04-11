@@ -1,5 +1,7 @@
 use vm::*;
 
+use lexer::Literal;
+
 pub use parser::Declaration;
 pub use parser::Statement;
 pub use parser::Expression;
@@ -10,6 +12,8 @@ pub enum VMBuildError {
   // error, pos
   InvalidExpression(String, i32),
   UnsupportedOperator(Token, i32),
+  UnsupportedType(Literal, i32),
+
   Temp
 }
 
@@ -54,12 +58,12 @@ impl VMBuild {
           &(_, pos) => pos
         };
 
-        println!("pos: {:?}", pos);
+        // println!("pos: {:?}", pos);
 
         left.push(pos as u8);
         Ok(left)
       },
-      &Expression::Primary(ref literal, _pos) => {
+      &Expression::Primary(ref literal, pos) => {
         match literal {
           &Primary::Identifier(ref identifier) => {
             // println!("identifier: {}", identifier);
@@ -81,12 +85,23 @@ impl VMBuild {
                 v.append(&mut bv);
                 Ok(v)
               },
-              _ => Err(VMBuildError::Temp)
+              &lexer::Literal::Bool(b) => {
+                let v = vec![u(PUSH_BOOL), if b {0x01} else {0x00}];
+                Ok(v)
+              },
+              &lexer::Literal::String(ref s) => {
+                let mut v = vec![u(PUSH_STRING)];
+                let mut s: Vec<u8> = s.clone().into_bytes();
+                v.append(&mut s);
+                v.push(u(NULL));
+                Ok(v)
+              },
+              _ => return Err(VMBuildError::UnsupportedType(literal.clone(), pos))
             }
           }
         }
       },
-      _ => Err(VMBuildError::InvalidExpression(format!("{:?}", expr), pos))
+      _ => return Err(VMBuildError::InvalidExpression(format!("{:?}", expr), pos))
     }
   }
 
@@ -97,7 +112,13 @@ impl VMBuild {
 
   fn build_stmt(&mut self, stmt: &Statement) -> Result<Vec<u8>, VMBuildError> {
     match stmt {
-      &Statement::ExpressionStmt(ref expr, ref is_statement, pos) => self.build_expr(expr, pos)
+      &Statement::ExpressionStmt(ref expr, is_statement, pos) => {
+        let mut res = self.build_expr(expr, pos)?;
+        if is_statement {
+          res.push(u(POP));
+        }
+        Ok(res)
+      }
     }
   }
 
@@ -125,7 +146,7 @@ impl VMBuild {
 
 
     for i in decls {
-      println!("{:?}", i);
+      // println!("{:?}", i);
       let mut built = self.build_decl(&*i)?;
       program.append(&mut built);
     }

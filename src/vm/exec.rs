@@ -13,21 +13,38 @@ pub enum VMExecError {
   Temp
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Literal {
   Num(f64),
-
-  // Pos of string
-  // String(i32)
+  Bool(bool),
+  String(String)
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Value {
   // Variable(),
   Literal(Literal),
   NIL,
 
   None,
+}
+
+struct Root {
+  pool: Vec<Box<Value>>,
+  literal_strs: Vec<Box<String>>
+}
+
+impl Root {
+  pub fn new() -> Self {
+    Self {
+      pool: Vec::new(),
+      literal_strs: Vec::new()
+    }
+  }
+
+  pub fn gc() {
+    // todo
+  }
 }
 
 pub struct VMExec {
@@ -90,19 +107,34 @@ impl VMExec {
     };
 
     unsafe {
-      match (*val1, *val2) {
-        (Value::Literal(val1), Value::Literal(val2)) => {
-          let res: Value = match (val1, val2, operation) {
-            (Literal::Num(first), Literal::Num(second), &ADD) => {
+      match (&*val1, &*val2) {
+        (&Value::Literal(ref val1), &Value::Literal(ref val2)) => {
+          let res: Value = match(val1, val2, operation) {
+
+            // NUMBER OPERATIONS
+            (&Literal::Num(first), &Literal::Num(second), &ADD) => {
               Value::Literal(Literal::Num(first + second))
             },
-            (Literal::Num(first), Literal::Num(second), &SUB) => {
+            (&Literal::Num(first), &Literal::Num(second), &SUB) => {
               Value::Literal(Literal::Num(first - second))
             },
-            (Literal::Num(first), Literal::Num(second), &MULTIPLY) => {
+            (&Literal::Num(first), &Literal::Num(second), &MULTIPLY) => {
               Value::Literal(Literal::Num(first * second))
             },
-            _ => return Err(VMExecError::UnsupportedOperation(val1, val2, operation.clone(), get_pos()))
+
+            // STRING OPERATIONS
+            (&Literal::String(ref first), &Literal::Num(second), &MULTIPLY) |
+            (&Literal::Num(second), &Literal::String(ref first), &MULTIPLY) => {
+              Value::Literal(Literal::String(format!{"{}", first}.repeat(second as usize)))
+            },
+            (&Literal::String(ref first), &Literal::Num(second), &ADD) => {
+              Value::Literal(Literal::String(format!("{}{}", first, second)))
+            },
+            (&Literal::Num(first), &Literal::String(ref second), &ADD) => {
+              Value::Literal(Literal::String(format!("{}{}", first, second)))
+            },
+
+            _ => return Err(VMExecError::UnsupportedOperation(val1.clone(), val2.clone(), operation.clone(), get_pos()))
           };
 
           let res = Box::new(res);
@@ -129,6 +161,7 @@ impl VMExec {
 
   pub fn exec(&mut self, program: Program) -> Result<String, VMExecError> {
     self.reset();
+    // println!("root: {:?}", self.root.pool);
     // self.program = program;
 
     let mut program = vec![];
@@ -214,6 +247,34 @@ impl VMExec {
             self.root.pool.push(val);
             self.stack_push(val_point);
           },
+          PUSH_BOOL => {
+            let b = self.consume();
+
+            let val = Box::new(Value::Literal(Literal::Bool(if b >= 1 {true} else {false})));
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
+          },
+          PUSH_STRING => {
+            let mut s: Vec<u8> = Vec::new();
+            loop {
+              let next = self.consume();
+              if next == u(NULL) {
+                break;
+              }
+              s.push(next);
+            }
+
+            let s = match str::from_utf8(&s) {
+              Ok(v) => v,
+              Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+            };
+
+            let val = Box::new(Value::Literal(Literal::String(String::from(s))));
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
+          },
           ADD | SUB | MULTIPLY => {
             let mut pos = None;
             if is_debug {
@@ -238,7 +299,5 @@ impl VMExec {
         return Err(VMExecError::InvalidOPCode(format!("{:?}", op.val)))
       }
     }
-    
-
   }
 }

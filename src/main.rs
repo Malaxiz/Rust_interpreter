@@ -22,7 +22,10 @@ fn main() {
   f.read_to_string(&mut contents)
     .expect("something went wrong reading the file");
 
-  // lang::exec(&contents, &mut interpreter);
+  match lang::exec(&contents, &mut vm) {
+    Ok(res) => print!("{}\n", res),
+    Err(_) => {}
+  };
 
   loop {
     print!("> ");
