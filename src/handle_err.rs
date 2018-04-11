@@ -4,8 +4,8 @@ use LangErr;
 use lexer::LexErr;
 use parser::ParserErr;
 use interpreter::InterpreterErr;
-use vm::VMBuildError;
-use vm::VMExecError;
+use vm::exec::VMExecError;
+use vm::build::VMBuildError;
 
 fn print_err(title: &str, err_pos: i32, width: i32, description: &str, query: &str) {
   let query_vec: Vec<&str> = query.split('\n').collect();
