@@ -30,7 +30,7 @@ fn main() {
 
         let mut i = 3;
         loop {
-          if i >= args.len()-1 {
+          if i >= args.len() {
             break;
           }
           match args[i].as_ref() {
