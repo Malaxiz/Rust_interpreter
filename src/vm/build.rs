@@ -130,10 +130,19 @@ impl VMBuild {
   }
 
   pub fn build(&mut self, decls: Decls, query: String, options: BuildOptions) -> Result<Instructions, VMBuildError> {
-    let mut program: Vec<u8> = vec![u(VERSION), 0x01, u(DEBUG), u(DEBUG_CODE)];
-    let mut code = query.as_bytes().to_vec();
-    program.append(&mut code);
-    program.push(u(DEBUG_CODE_END));
+    let mut program: Vec<u8> = vec![u(VERSION), 0x01];
+
+    if options.contains(BuildOptions::DEBUG) {
+      program.push(u(DEBUG))
+    }
+
+    if options.contains(BuildOptions::CODE) {
+      program.push(u(DEBUG_CODE));
+      let mut code = query.as_bytes().to_vec();
+      program.append(&mut code);
+      program.push(u(DEBUG_CODE_END));
+    }
+
     program.push(u(META_END));
 
     for i in decls {

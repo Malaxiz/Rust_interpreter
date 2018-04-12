@@ -74,8 +74,10 @@ enum_from_primitive! {
 
 bitflags! {
   pub struct BuildOptions: u32 {
+    const NONE = 0x00;
     const DEBUG = 0x01;
     const PROGRESS = 0x02;
+    const CODE = 0x03;
   }
 }
 
@@ -148,7 +150,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
 }
 
 pub struct VM {
-  vm_exec: VMExec,
+  pub vm_exec: VMExec,
   vm_build: VMBuild
 }
 
@@ -161,6 +163,10 @@ impl VM {
       vm_exec: VMExec::new(),
       vm_build: VMBuild::new()
     }
+  }
+
+  pub fn get_query(self) -> String {
+    self.vm_exec.query
   }
 
   pub fn build(&mut self, decls: Decls, code: String, options: BuildOptions) -> Result<Instructions, VMBuildError> {

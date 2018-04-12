@@ -7,6 +7,10 @@ use interpreter::InterpreterErr;
 use vm::exec::VMExecError;
 use vm::build::VMBuildError;
 
+fn print_err_type(t: &LangErr) {
+  println!("{}", ansi_term::Color::Red.bold().paint(format!("{:?}", t)));
+}
+
 fn print_err(title: &str, err_pos: i32, width: i32, description: &str, query: &str) {
   let query_vec: Vec<&str> = query.split('\n').collect();
 
@@ -223,6 +227,11 @@ fn exec_err(err: &VMExecError, query: &str) {
 }
 
 pub fn handle_err(err: &LangErr, query: &str) {
+  if query == "" {
+    print_err_type(err);
+    return;
+  }
+
   match err {
     &LangErr::LexErr(ref err) => lexer_err(err, query),
     &LangErr::ParserErr(ref err) => parser_err(err, query),

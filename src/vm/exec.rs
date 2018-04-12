@@ -59,7 +59,10 @@ pub struct VMExec {
   stack: [*const Value; 512],
   stacki: usize,
 
-  query: String
+  pub query: String,
+
+  pub is_debug: bool,
+  pub contains_code: bool
 }
 
 impl VMExec {
@@ -73,7 +76,10 @@ impl VMExec {
       stack: [&Value::None; 512],
       stacki: 0,
 
-      query: String::from("")
+      query: String::from(""),
+
+      is_debug: false,
+      contains_code: false,
     }
   }
 
@@ -210,8 +216,6 @@ impl VMExec {
     self.program = program;
 
     let mut meta_end = false;
-    let mut is_debug = false;
-
     let mut self_point: *mut Self = self;
 
     loop {
@@ -225,8 +229,9 @@ impl VMExec {
         if !meta_end {
           match *code {
             META_END => meta_end = true,
-            DEBUG => is_debug = true,
+            DEBUG => self.is_debug = true,
             DEBUG_CODE => {
+              self.contains_code = true;
               let mut query: Vec<u8> = Vec::new();
               loop {
                 self.op_i += 1;
@@ -306,7 +311,7 @@ impl VMExec {
           PUSH_VAR => {
             unsafe {
               let mut pos = None;
-              if is_debug {
+              if self.is_debug {
                 pos = Some(self.consume() as i32);
               }
 
@@ -323,7 +328,7 @@ impl VMExec {
           },
           ADD | SUB | MULTIPLY | ASSIGN => {
             let mut pos = None;
-            if is_debug {
+            if self.is_debug {
               pos = Some(self.consume() as i32);
             }
 

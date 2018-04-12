@@ -10,8 +10,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use interpreter::Interpreter;
-use vm::VM;
-use vm::BuildOptions;
+use vm::{VM, BuildOptions, Program, Instructions};
 use lexer::Literal;
 
 mod handle_err;
@@ -25,59 +24,47 @@ pub enum LangErr {
   VMBuildErr(vm::VMBuildError)
 }
 
-fn do_exec(query: &str, interpreter: &mut VM) -> Result<String, LangErr> {
+fn do_build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
   let lexed = match lexer::lex(query) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::LexErr(err))
   };
-  // println!("{:?}", lexed);
 
   let parsed = match parser::parse(lexed) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::ParserErr(err))
   };
-  // println!("{:?}", parsed);
 
-  let instructions = match interpreter.build(parsed, String::from(query), BuildOptions::DEBUG) {
+  let instructions = match vm.build(parsed, String::from(query), BuildOptions::DEBUG | BuildOptions::CODE) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::VMBuildErr(err))
   };
 
-  {
-    let mut file = File::create("prog.lng").unwrap();
-    file.write_all(&instructions).unwrap();
-  }
-
-  // let program = vm::get_program(built);
-
-  let program = {
-    let mut bytes = vec![];
-    let mut f = File::open("prog.lng").unwrap();
-    for byte in f.bytes() {
-      bytes.push(byte.unwrap());
-    }
-    vm::get_program(bytes)
-  };
-
-  let executed = match interpreter.exec(program) {
-    Ok(val) => val,
-    Err(err) => return Err(LangErr::VMExecErr(err))
-  };
-
-  Ok(executed)
+  Ok(instructions)
 }
 
-pub fn exec(query: &str, interpreter: &mut VM) -> Result<String, LangErr> {
-  let result = do_exec(query, interpreter);
-  match result {
-    Err(ref err) => {
-      // println!("{:?}", err);
-      handle_err::handle_err(err, query)
-    },
-    _ => {}
-  };
+pub fn build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
+  match do_build(query, vm) {
+    Ok(val) => Ok(val),
+    Err(err) => {
+      handle_err::handle_err(&err, query);
+      Err(err)
+    }
+  }
+}
 
-  result
+pub fn exec(program: Program, vm: &mut VM) -> Result<String, LangErr> {
+  // let result = do_exec(program, vm);
+  match vm.exec(program) {
+    Ok(val) => Ok(val),
+    Err(err) => {
+      let err = LangErr::VMExecErr(err);
+      if vm.vm_exec.is_debug {
+        handle_err::handle_err(&err, &vm.vm_exec.query);
+      }
+      Err(err)
+    }
+  }
 }
 
 #[cfg(test)]

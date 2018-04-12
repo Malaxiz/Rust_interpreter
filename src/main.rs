@@ -7,40 +7,115 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-use lang::interpreter::Interpreter;
-use lang::vm::VM;
+// use lang::interpreter::Interpreter;
+use lang::vm;
+use vm::VM;
 
 fn main() {
 
-  let mut interpreter = Interpreter::new();
   let mut vm = VM::new();
 
-  let mut f = File::open("test.lang")
-    .expect("file not found");
+  let args: Vec<_> = env::args().collect();
+  if args.len() > 1 {
+    if args.len() < 3 {
+      panic!("wrong usage");
+    }
+    let cmd = &args[1];
+    let name = &args[2];
 
-  let mut contents = String::new();
-  f.read_to_string(&mut contents)
-    .expect("something went wrong reading the file");
+    match cmd.as_ref() {
+      "build" => {
+        let mut output = "prog.lby";
+        if args.len() > 3 {
+          output = &args[3];
+        }
+        
+        let mut f = File::open(name)
+          .expect("file not found");
 
-  match lang::exec(&contents, &mut vm) {
-    Ok(res) => print!("{}\n", res),
-    Err(_) => {}
-  };
+        let mut contents = String::new();
+        f.read_to_string(&mut contents)
+          .expect("something went wrong reading the file");
 
-  loop {
-    print!("> ");
-    io::stdout().flush().unwrap();
+        match lang::build(&contents, &mut vm) {
+          Ok(instructions) => {
+            let mut file = File::create(output).unwrap();
+            file.write_all(&instructions).unwrap();
+            println!("build successful, program written to: {:?}", output);
+          },
+          Err(_) => println!("build error")
+        };
+      },
+      "run" => {
+        let program = {
+          let mut bytes = vec![];
+          let mut f = File::open(name).unwrap();
+          for byte in f.bytes() {
+            bytes.push(byte.unwrap());
+          }
+          vm::get_program(bytes)
+        };
 
-    let mut query = String::new();
-    io::stdin().read_line(&mut query)
-      .expect("Failed to read line");
+        match lang::exec(program, &mut vm) {
+          Ok(res) => println!("{}", res),
+          Err(_) => {}
+        }
+      },
+      _ => {
 
-    query.pop().unwrap();
-    match lang::exec(&query, &mut vm) {
-      Ok(res) => print!("{}\n", res),
-      Err(_) => {}
-    };
+      }
+    }
+  } else {
+    loop {
+      print!("> ");
+      io::stdout().flush().unwrap();
+
+      let mut query = String::new();
+      io::stdin().read_line(&mut query)
+        .expect("Failed to read line");
+
+      query.pop().unwrap();
+
+      let instructions = match lang::build(&query, &mut vm) {
+        Ok(program) => program,
+        Err(_) => continue
+      };
+
+      match lang::exec(vm::get_program(instructions), &mut vm) {
+        Ok(res) => println!("{}", res),
+        Err(_) => continue
+      }
+    }
   }
+
+  
+
+  // let mut f = File::open("test.lang")
+  //   .expect("file not found");
+
+  // let mut contents = String::new();
+  // f.read_to_string(&mut contents)
+  //   .expect("something went wrong reading the file");
+
+  // match lang::exec(&contents, &mut vm) {
+  //   Ok(res) => print!("{}\n", res),
+  //   Err(_) => {}
+  // };
+
+  // loop {
+  //   print!("> ");
+  //   io::stdout().flush().unwrap();
+
+  //   let mut query = String::new();
+  //   io::stdin().read_line(&mut query)
+  //     .expect("Failed to read line");
+
+  //   query.pop().unwrap();
+  //   match lang::exec(&query, &mut vm) {
+  //     Ok(res) => print!("{}\n", res),
+  //     Err(_) => {}
+  //   };
+  // }
 
 
 }
