@@ -23,7 +23,7 @@ impl VMBuild {
   pub fn new() -> Self {
     Self {
       program: Vec::new(),
-      is_debug: true
+      is_debug: false
     }
   }
 
@@ -49,14 +49,24 @@ impl VMBuild {
           &(Token::Minus, _) => SUB,
           &(Token::Asterix, _) => MULTIPLY,
           &(Token::Equals, _) => ASSIGN,
+          &(Token::Slash, _) => DIVIDE,
+          
+          &(Token::Lt, _) => LT,
+          &(Token::Gt, _) => GT,
+          &(Token::LtOrEquals, _) => LTOREQ,
+          &(Token::GtOrEquals, _) => GTOREQ,
+
           &(_, pos) => return Err(VMBuildError::UnsupportedOperator(token.0, pos))
         }));
 
-        let pos = match token {
-          &(_, pos) => pos
-        };
+        if self.is_debug {
+          let pos = match token {
+            &(_, pos) => pos
+          };
 
-        left.push(pos as u8);
+          left.push(pos as u8); 
+        }
+
         Ok(left)
       },
       &Expression::Primary(ref literal, pos) => {
@@ -97,10 +107,30 @@ impl VMBuild {
                 v.push(u(NULL));
                 Ok(v)
               },
+              &lexer::Literal::Nil => {
+                Ok(vec![u(PUSH_NIL)])
+              },
               _ => return Err(VMBuildError::UnsupportedType(literal.clone(), pos))
             }
           }
         }
+      },
+      &Expression::PrintExpr(ref expr, pos) => {
+        let expr_pos = match **expr {
+          Expression::Primary(_, pos) => pos,
+          _ => 0
+        };
+
+        println!("expr: {:?}", **expr);
+
+        let mut v = self.build_binary(&*expr, expr_pos)?;
+        v.push(u(PRINT));
+
+        if self.is_debug {
+          v.push(pos as u8)
+        }
+
+        Ok(v)
       },
       _ => return Err(VMBuildError::InvalidExpression(format!("{:?}", expr), pos))
     }
@@ -133,6 +163,7 @@ impl VMBuild {
     let mut program: Vec<u8> = vec![u(VERSION), 0x01];
 
     if options.contains(BuildOptions::DEBUG) {
+      self.is_debug = true;
       program.push(u(DEBUG))
     }
 
@@ -151,6 +182,7 @@ impl VMBuild {
     }
     
     program.push(u(END));
+
     Ok(program)
   }
 }

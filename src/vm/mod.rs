@@ -52,9 +52,11 @@ enum_from_primitive! {
     PUSH_BOOL,
     PUSH_STRING,
     PUSH_VAR,
+    PUSH_NIL,
 
     POP,
-    PEEK,
+
+    PRINT,
 
     JUMP,
     JUMPIF,
@@ -64,6 +66,7 @@ enum_from_primitive! {
     ADD,
     SUB,
     MULTIPLY,
+    DIVIDE,
 
     LT,
     GT,
@@ -99,25 +102,39 @@ pub struct Operation {
 pub fn get_program(bytes: Vec<u8>) -> Program {
   let mut program = Vec::new();
   let mut i = 0;
-  while(i < bytes.len()) {
+  let blen = bytes.len();
+  while(i < blen) {
     let op = bytes[i];
 
     let code = OPCode::from_i32(op as i32);
+
+    println!("code: {:?}", code);
+
     let mut content = unsafe {
       match code {
         Some(val) => match val {
           PUSH_NUM => {
-            let mut content_vec: [u8; 8] = [0x00; 8];
-            for j in 0..8 {
-              let op = bytes[i+j+1];
-              content_vec[j] = op;
+            if i + 8 <= blen {
+              let mut content_vec: [u8; 8] = [0x00; 8];
+              for j in 0..8 {
+                let op = bytes[i+j+1];
+                content_vec[j] = op;
+              }
+              OperationLiteral::Num(mem::transmute::<[u8; 8], f64>(content_vec)) 
+            } else {
+              OperationLiteral::None
             }
-            OperationLiteral::Num(mem::transmute::<[u8; 8], f64>(content_vec))
           },
           PUSH_STRING => {
             let mut content_vec: Vec<u8> = Vec::new();
             let mut j = 0;
+            let content = OperationLiteral::None;
+            let mut is_invalid = false;
             loop {
+              if i + j + 1 >= blen { // invalid
+                is_invalid = true;
+                break;
+              }
               let op = bytes[i+j+1];
               if op == u(NULL) {
                 break;
@@ -125,13 +142,18 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
               content_vec.push(op);
               j += 1;
             }
-            let s = String::from(match str::from_utf8(&content_vec) {
-              Ok(v) => v,
-              Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
-            });
-            let len = s.len() + 1; // + 1 null terminator
-            OperationLiteral::String(s, len)
-          },
+
+            if !is_invalid {
+              let s = String::from(match str::from_utf8(&content_vec) {
+                Ok(v) => v,
+                Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+              });
+              let len = s.len() + 1; // + 1 null terminator
+              OperationLiteral::String(s, len)
+            } else {
+              OperationLiteral::None
+            }
+          }
           _ => OperationLiteral::None
         },
         None => OperationLiteral::None

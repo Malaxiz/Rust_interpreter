@@ -109,6 +109,45 @@ impl VMExec {
     self.stack[self.stacki]
   }
 
+  fn stack_peek(&self) -> *const Value {
+    if self.stacki <= 0 {
+      return NIL;
+    }
+    let val = self.stack[self.stacki - 1];
+    unsafe {
+      match *val {
+        Value::None => NIL,
+        _ => val
+      }
+    }
+  }
+
+  fn literal_to_string(&self, literal: &Literal) -> String {
+    match literal {
+      &Literal::Num(val) => format!("{}", val),
+      &Literal::Nil => format!("nil"),
+      &Literal::Bool(b) => format!("{}", if b {"true"} else {"false"}),
+      &Literal::String(ref val) => format!("\"{}\"", val),
+      _ => format!("err")
+    }
+  }
+
+  fn value_to_string(&self, val: *const Value) -> String {
+    unsafe {
+      match *val {
+        Value::Literal(ref val) => self.literal_to_string(val),
+        Value::Variable(ref identifier, _) => match self.variables.get(identifier) {
+          Some(val) => match **val {
+            Value::Literal(ref val) => self.literal_to_string(val),
+            _ => format!("err")
+          },
+          None => format!("nil")
+        },
+        _ => format!("None")
+      }
+    }
+  }
+
   fn literal_operation(&mut self, val1f: *const Value, val2f: *const Value, operation: &OPCode, pos: Option<i32>) -> Result<*const Value, VMExecError> {
     let get_pos = || {
       match pos {
@@ -160,6 +199,23 @@ impl VMExec {
             },
             (&Literal::Num(first), &Literal::Num(second), &MULTIPLY) => {
               Value::Literal(Literal::Num(first * second))
+            },
+            (&Literal::Num(first), &Literal::Num(second), &DIVIDE) => {
+              Value::Literal(Literal::Num(first / second))
+            },
+
+            // BOOLEAN OPERATIONS
+            (&Literal::Num(first), &Literal::Num(second), &LT) => {
+              Value::Literal(Literal::Bool(first < second))
+            },
+            (&Literal::Num(first), &Literal::Num(second), &GT) => {
+              Value::Literal(Literal::Bool(first > second))
+            },
+            (&Literal::Num(first), &Literal::Num(second), &LTOREQ) => {
+              Value::Literal(Literal::Bool(first <= second))
+            },
+            (&Literal::Num(first), &Literal::Num(second), &GTOREQ) => {
+              Value::Literal(Literal::Bool(first <= second))
             },
 
             // STRING OPERATIONS
@@ -265,18 +321,7 @@ impl VMExec {
         match *code {
           END => {
             unsafe {
-              let res = match *self.stack_pop() {
-                Value::Literal(ref val) => format!("{:?}", val),
-                Value::Variable(ref identifier, _) => match self.variables.get(identifier) {
-                  Some(val) => match **val {
-                    Value::Literal(ref val) => format!("{:?}", *val),
-                    _ => format!("None")
-                  },
-                  None => format!("nil")
-                },
-                _ => format!("None")
-              };
-              return Ok(res);
+              return Ok((*self_point).value_to_string(self.stack_pop()));
             }
           },
           PUSH_NUM => {
@@ -326,7 +371,8 @@ impl VMExec {
               self.stack_push(val_point);
             }
           },
-          ADD | SUB | MULTIPLY | ASSIGN => {
+          ADD | SUB | MULTIPLY | ASSIGN | DIVIDE |
+          GT | LT | GTOREQ | LTOREQ => {
             let mut pos = None;
             if self.is_debug {
               pos = Some(self.consume() as i32);
@@ -337,10 +383,20 @@ impl VMExec {
             let res = self.literal_operation(first, second, code, pos)?;
             self.stack_push(res);
           },
+          PRINT => {
+            let mut pos = None;
+            if self.is_debug {
+              pos = Some(self.consume() as i32);
+            }
+
+            unsafe {
+              println!("{}", (*self_point).value_to_string(self.stack_peek()));
+            }
+          },
           POP => {
             self.stack_pop();
           }
-          _ => return Err(VMExecError::UnsupportedOPCode(format!("{:?}", op.val)))
+          _ => return Err(VMExecError::UnsupportedOPCode(format!("{:?}", op)))
         };
 
         self.op_i += 1;

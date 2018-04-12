@@ -7,8 +7,12 @@ use interpreter::InterpreterErr;
 use vm::exec::VMExecError;
 use vm::build::VMBuildError;
 
+pub fn print_err_text(msg: &str) {
+  print!("{}", ansi_term::Color::Red.bold().paint(format!("{}", msg)));
+}
+
 fn print_err_type(t: &LangErr) {
-  println!("{}", ansi_term::Color::Red.bold().paint(format!("{:?}", t)));
+  print_err_text(&format!("{:?}\n", t));
 }
 
 fn print_err(title: &str, err_pos: i32, width: i32, description: &str, query: &str) {

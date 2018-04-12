@@ -35,7 +35,7 @@ fn do_build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
     Err(err) => return Err(LangErr::ParserErr(err))
   };
 
-  let instructions = match vm.build(parsed, String::from(query), BuildOptions::DEBUG | BuildOptions::CODE) {
+  let instructions = match vm.build(parsed, String::from(query), BuildOptions::NONE | BuildOptions::DEBUG | BuildOptions::CODE) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::VMBuildErr(err))
   };
@@ -58,9 +58,12 @@ pub fn exec(program: Program, vm: &mut VM) -> Result<String, LangErr> {
   match vm.exec(program) {
     Ok(val) => Ok(val),
     Err(err) => {
+      println!("{:?}", err);
       let err = LangErr::VMExecErr(err);
       if vm.vm_exec.is_debug {
         handle_err::handle_err(&err, &vm.vm_exec.query);
+      } else {
+        handle_err::print_err_text("err in script\n");
       }
       Err(err)
     }
