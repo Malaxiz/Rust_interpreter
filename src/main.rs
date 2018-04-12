@@ -28,7 +28,11 @@ fn main() {
         let mut release = false;
         let mut optimized = false;
 
-        for mut i in 3..args.len()-1 {
+        let mut i = 3;
+        loop {
+          if i >= args.len()-1 {
+            break;
+          }
           match args[i].as_ref() {
             "-o" => {
               if i == args.len()-1 {
@@ -43,6 +47,7 @@ fn main() {
               panic!(format!("unknown option: {}", args[i]))
             }
           }
+          i += 1;
         }
 
         let mut options = BuildOptions::DEBUG | BuildOptions::CODE;
