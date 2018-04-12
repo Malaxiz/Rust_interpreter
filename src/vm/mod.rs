@@ -25,7 +25,7 @@ pub type Program = Vec<Operation>;
 pub type Instructions = Vec<u8>;
 pub type Decls = Vec<Box<Declaration>>;
 
-const NIL: *const Value = &Value::NIL;
+const NIL: *const Value = &Value::Literal(exec::Literal::Nil);
 
 pub fn u(op_code: OPCode) -> u8 {
   op_code as u8

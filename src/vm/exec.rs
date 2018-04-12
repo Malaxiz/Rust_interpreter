@@ -1,6 +1,7 @@
 use vm::*;
 use vm::OPCode::*;
 use enum_primitive::FromPrimitive;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum VMExecError {
@@ -8,9 +9,12 @@ pub enum VMExecError {
   UnsupportedOperation(Literal, Literal, OPCode, i32),
   InvalidOPCode(String),
   UnsupportedOPCode(String),
+  VariableNotDefined(String, i32),
 
   // position in bytecode
   InvalidOperationContent(usize),
+
+  InvalidIdentifier(String),
 
   Temp
 }
@@ -19,28 +23,25 @@ pub enum VMExecError {
 pub enum Literal {
   Num(f64),
   Bool(bool),
-  String(String)
+  String(String),
+  Nil
 }
 
 #[derive(Clone, Debug)]
 pub enum Value {
-  // Variable(),
+  Variable(String, Option<i32>),
   Literal(Literal),
-  NIL,
-
   None,
 }
 
 struct Root {
-  pool: Vec<Box<Value>>,
-  literal_strs: Vec<Box<String>>
+  pool: Vec<Box<Value>>
 }
 
 impl Root {
   pub fn new() -> Self {
     Self {
-      pool: Vec::new(),
-      literal_strs: Vec::new()
+      pool: Vec::new()
     }
   }
 
@@ -53,6 +54,7 @@ pub struct VMExec {
   op_i: usize,
   program: Vec<Operation>,
 
+  variables: HashMap<String, *const Value>,
   root: Root,
   stack: [*const Value; 512],
   stacki: usize,
@@ -66,6 +68,7 @@ impl VMExec {
       op_i: 0,
       program: Vec::new(),
 
+      variables: HashMap::new(),
       root: Root::new(),
       stack: [&Value::None; 512],
       stacki: 0,
@@ -100,7 +103,7 @@ impl VMExec {
     self.stack[self.stacki]
   }
 
-  fn literal_operation(&mut self, val1: *const Value, val2: *const Value, operation: &OPCode, pos: Option<i32>) -> Result<*const Value, VMExecError> {
+  fn literal_operation(&mut self, val1f: *const Value, val2f: *const Value, operation: &OPCode, pos: Option<i32>) -> Result<*const Value, VMExecError> {
     let get_pos = || {
       match pos {
         Some(pos) => pos,
@@ -108,10 +111,39 @@ impl VMExec {
       }
     };
 
+    let is_assignment = operation == &ASSIGN;
+
+    let mut val1 = val1f;
+    let mut val2 = val2f;
+
+    unsafe {
+      if !is_assignment {
+        if let &Value::Variable(ref identifier, pos) = &*val1f {
+          val1 = match self.variables.get(identifier) {
+            Some(val) => *val,
+            None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+              Some(pos) => pos,
+              None => 0
+            }))
+          }
+        }
+      }
+      if let &Value::Variable(ref identifier, pos) = &*val2f {
+        val2 = match self.variables.get(identifier) {
+          Some(val) => *val,
+          None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+            Some(pos) => pos,
+            None => 0
+          }))
+        }
+      }
+      // println!("{:?}, {:?}", *val1, *val2);
+    }
+
     unsafe {
       match (&*val1, &*val2) {
-        (&Value::Literal(ref val1), &Value::Literal(ref val2)) => {
-          let res: Value = match(val1, val2, operation) {
+        (&Value::Literal(ref lit1), &Value::Literal(ref lit2)) => {
+          let res: Value = match(lit1, lit2, operation) {
 
             // NUMBER OPERATIONS
             (&Literal::Num(first), &Literal::Num(second), &ADD) => {
@@ -136,13 +168,24 @@ impl VMExec {
               Value::Literal(Literal::String(format!("{}{}", first, second)))
             },
 
-            _ => return Err(VMExecError::UnsupportedOperation(val1.clone(), val2.clone(), operation.clone(), get_pos()))
+            _ => return Err(VMExecError::UnsupportedOperation(lit1.clone(), lit2.clone(), operation.clone(), get_pos()))
           };
 
           let res = Box::new(res);
           let res_point: *const Value = &*res;
           self.root.pool.push(res);
           Ok(res_point)
+        },
+        (&Value::Variable(ref identifier, _), &Value::Literal(ref lit)) => {
+          match (lit, operation) {
+            (_, &ASSIGN) => {
+              self.variables.insert(identifier.to_string(), val2);
+              Ok(val2) // might be memory error
+            },
+            _ => {
+              Ok(NIL)
+            }
+          }
         },
         _ => return Err(VMExecError::Temp)
       }
@@ -217,7 +260,18 @@ impl VMExec {
         match *code {
           END => {
             unsafe {
-              return Ok(format!("{:?}", *self.stack_pop()));
+              let res = match *self.stack_pop() {
+                Value::Literal(ref val) => format!("{:?}", val),
+                Value::Variable(ref identifier, _) => match self.variables.get(identifier) {
+                  Some(val) => match **val {
+                    Value::Literal(ref val) => format!("{:?}", *val),
+                    _ => format!("None")
+                  },
+                  None => format!("nil")
+                },
+                _ => format!("None")
+              };
+              return Ok(res);
             }
           },
           PUSH_NUM => {
@@ -249,7 +303,25 @@ impl VMExec {
             self.root.pool.push(val);
             self.stack_push(val_point);
           },
-          ADD | SUB | MULTIPLY => {
+          PUSH_VAR => {
+            unsafe {
+              let mut pos = None;
+              if is_debug {
+                pos = Some(self.consume() as i32);
+              }
+
+              let identifier = self.stack_pop();
+              let identifier = match &*identifier {
+                &Value::Literal(Literal::String(ref s)) => s,
+                _ => return Err(VMExecError::InvalidIdentifier(format!("{:?}", &*identifier)))
+              };
+              let val = Box::new(Value::Variable(identifier.to_string(), pos)); // temp
+              let val_point = &*val as *const Value;
+              self.root.pool.push(val);
+              self.stack_push(val_point);
+            }
+          },
+          ADD | SUB | MULTIPLY | ASSIGN => {
             let mut pos = None;
             if is_debug {
               pos = Some(self.consume() as i32);

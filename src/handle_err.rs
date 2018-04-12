@@ -207,6 +207,12 @@ fn exec_err(err: &VMExecError, query: &str) {
       err_pos = *pos;
       description = format!("operation {:?} not supported for types {:?} and {:?}", op_code, first, second);
     },
+    &VMExecError::VariableNotDefined(ref identifier, pos) => {
+      title = "VMExecError: VariableNotDefined";
+      err_pos = pos;
+      description = format!("variable {:?} not defined", identifier);
+      width = identifier.len() as i32;
+    },
     _ => {
       title = "VMExecError!";
       description = format!("{:?}", err);

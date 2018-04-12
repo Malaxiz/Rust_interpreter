@@ -45,9 +45,10 @@ impl VMBuild {
         left.append(&mut right);
 
         left.push(u(match token {
-          &(Token::Plus, pos) => ADD,
-          &(Token::Minus, pos) => SUB,
-          &(Token::Asterix, pos) => MULTIPLY,
+          &(Token::Plus, _) => ADD,
+          &(Token::Minus, _) => SUB,
+          &(Token::Asterix, _) => MULTIPLY,
+          &(Token::Equals, _) => ASSIGN,
           &(_, pos) => return Err(VMBuildError::UnsupportedOperator(token.0, pos))
         }));
 
@@ -61,10 +62,17 @@ impl VMBuild {
       &Expression::Primary(ref literal, pos) => {
         match literal {
           &Primary::Identifier(ref identifier) => {
-            // println!("identifier: {}", identifier);
-            // let val_pointer = self.save_value(Literal::Variable(identifier.clone()));
-            // Ok(val_pointer)
-            Ok(vec![u(PUSH_BOOL), 0x00])
+            let mut v = vec![u(PUSH_STRING)];
+            let mut s: Vec<u8> = identifier.clone().into_bytes();
+            v.append(&mut s);
+            v.push(u(NULL));
+            v.push(u(PUSH_VAR));
+            
+            if self.is_debug {
+              v.push(pos as u8);
+            }
+
+            Ok(v)
           },
           &Primary::Literal(ref literal) => {
             match literal {
