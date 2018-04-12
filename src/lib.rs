@@ -57,7 +57,6 @@ pub fn exec(program: Program, vm: &mut VM) -> Result<String, LangErr> {
   match vm.exec(program) {
     Ok(val) => Ok(val),
     Err(err) => {
-      println!("{:?}", err);
       let err = LangErr::VMExecErr(err);
       if vm.vm_exec.is_debug {
         handle_err::handle_err(&err, &vm.vm_exec.query);

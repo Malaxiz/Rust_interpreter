@@ -1,3 +1,22 @@
-usage:
-  ./lang build src.lng binary.lby
-  ./lang run binary.lby
+# About
+
+A small VM built in Rust. It lexes, parses, builds and eventually runs code.
+
+# Usage
+
+## Interpreter
+
+`./lang`
+
+## Build
+
+`./lang build inputfile -o outputfile`
+
+|Option|Effect|
+|-|-|
+|`--release`|Removes the embedded code to save space and obfuscate.|
+|`--optimized`|Removes all meta data regarding position of operations.|
+
+## Run
+
+`./lang run inputfile`
