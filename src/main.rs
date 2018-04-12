@@ -10,8 +10,33 @@ use std::io::prelude::*;
 use lang::vm;
 use vm::{VM, BuildOptions};
 
-fn main() {
+fn shell(mut vm: &mut VM) {
+  let options = BuildOptions::DEBUG | BuildOptions::CODE;
+    
+  loop {
+    print!("> ");
+    io::stdout().flush().unwrap();
 
+    let mut query = String::new();
+    io::stdin().read_line(&mut query)
+      .expect("Failed to read line");
+
+    query.pop().unwrap();
+
+    let instructions = match lang::build(&query, &mut vm, options) {
+      Ok(program) => program,
+      Err(_) => continue
+    };
+
+    let program = vm::get_program(instructions);
+    match lang::exec(program, &mut vm) {
+      Ok(res) => println!("{}", res),
+      Err(_) => continue
+    }
+  }
+}
+
+fn main() {
   let mut vm = VM::new();
 
   let args: Vec<_> = env::args().collect();
@@ -75,6 +100,22 @@ fn main() {
         };
       },
       "run" => {
+        let mut shell_after = false;
+
+        let mut i = 3;
+        loop {
+          if i >= args.len() {
+            break;
+          }
+          match args[i].as_ref() {
+            "--shell" => shell_after = true,
+            _ => {
+              panic!(format!("unknown option: {}", args[i]))
+            }
+          }
+          i += 1;
+        }
+        
         let program = {
           let mut bytes = vec![];
           let mut f = File::open(name).unwrap();
@@ -88,34 +129,15 @@ fn main() {
           Ok(res) => println!("{}", res),
           Err(_) => {}
         }
+
+        if shell_after {
+          shell(&mut vm);
+        }
       },
       _ => {}
     }
   } else {
-    println!("Welcome to the vm-based interpreter!");
-
-    let options = BuildOptions::DEBUG | BuildOptions::CODE;
-    
-    loop {
-      print!("> ");
-      io::stdout().flush().unwrap();
-
-      let mut query = String::new();
-      io::stdin().read_line(&mut query)
-        .expect("Failed to read line");
-
-      query.pop().unwrap();
-
-      let instructions = match lang::build(&query, &mut vm, options) {
-        Ok(program) => program,
-        Err(_) => continue
-      };
-
-      let program = vm::get_program(instructions);
-      match lang::exec(program, &mut vm) {
-        Ok(res) => println!("{}", res),
-        Err(_) => continue
-      }
-    }
+    println!("Welcome to the shell!");
+    shell(&mut vm);
   }
 }

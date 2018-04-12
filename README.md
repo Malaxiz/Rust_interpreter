@@ -20,3 +20,11 @@ A small VM built in Rust. It lexes, parses, builds and eventually runs code.
 ## Run
 
 `./lang run inputfile`
+
+|Option|Effect|
+|-|-|
+|`--shell`|Stay in shell after program has executed.|
+
+# Installation
+
+With cargo; `cargo build;`
