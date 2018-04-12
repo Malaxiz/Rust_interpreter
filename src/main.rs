@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use lang::vm;
-use vm::VM;
+use vm::{VM, BuildOptions};
 
 fn main() {
 
@@ -17,7 +17,7 @@ fn main() {
   let args: Vec<_> = env::args().collect();
   if args.len() > 1 {
     if args.len() < 3 {
-      panic!("wrong usage");
+      panic!("need input file");
     }
     let cmd = &args[1];
     let name = &args[2];
@@ -25,8 +25,32 @@ fn main() {
     match cmd.as_ref() {
       "build" => {
         let mut output = "prog.lby";
-        if args.len() > 3 {
-          output = &args[3];
+        let mut release = false;
+        let mut optimized = false;
+
+        for mut i in 3..args.len()-1 {
+          match args[i].as_ref() {
+            "-o" => {
+              if i == args.len()-1 {
+                panic!("usage: -o outputfile");
+              }
+              i += 1;
+              output = &args[i];
+            },
+            "--release" => release = true,
+            "--optimized" => optimized = true,
+            _ => {
+              panic!(format!("unknown option: {}", args[i]))
+            }
+          }
+        }
+
+        let mut options = BuildOptions::DEBUG | BuildOptions::CODE;
+        if release {
+          options = BuildOptions::DEBUG;
+        }
+        if optimized {
+          options = BuildOptions::NONE;
         }
         
         let mut f = File::open(name)
@@ -36,7 +60,7 @@ fn main() {
         f.read_to_string(&mut contents)
           .expect("something went wrong reading the file");
 
-        match lang::build(&contents, &mut vm) {
+        match lang::build(&contents, &mut vm, options) {
           Ok(instructions) => {
             let mut file = File::create(output).unwrap();
             file.write_all(&instructions).unwrap();
@@ -63,6 +87,10 @@ fn main() {
       _ => {}
     }
   } else {
+    println!("Welcome to the vm-based interpreter!");
+
+    let options = BuildOptions::DEBUG | BuildOptions::CODE;
+    
     loop {
       print!("> ");
       io::stdout().flush().unwrap();
@@ -73,14 +101,12 @@ fn main() {
 
       query.pop().unwrap();
 
-      let instructions = match lang::build(&query, &mut vm) {
+      let instructions = match lang::build(&query, &mut vm, options) {
         Ok(program) => program,
         Err(_) => continue
       };
 
       let program = vm::get_program(instructions);
-      // println!("{:#?}", program);
-
       match lang::exec(program, &mut vm) {
         Ok(res) => println!("{}", res),
         Err(_) => continue

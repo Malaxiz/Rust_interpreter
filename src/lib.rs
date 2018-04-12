@@ -24,7 +24,7 @@ pub enum LangErr {
   VMBuildErr(vm::VMBuildError)
 }
 
-fn do_build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
+fn do_build(query: &str, vm: &mut VM, options: BuildOptions) -> Result<Instructions, LangErr> {
   let lexed = match lexer::lex(query) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::LexErr(err))
@@ -35,7 +35,7 @@ fn do_build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
     Err(err) => return Err(LangErr::ParserErr(err))
   };
 
-  let instructions = match vm.build(parsed, String::from(query), BuildOptions::NONE | BuildOptions::DEBUG | BuildOptions::CODE) {
+  let instructions = match vm.build(parsed, String::from(query), options) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::VMBuildErr(err))
   };
@@ -43,8 +43,8 @@ fn do_build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
   Ok(instructions)
 }
 
-pub fn build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
-  match do_build(query, vm) {
+pub fn build(query: &str, vm: &mut VM, options: BuildOptions) -> Result<Instructions, LangErr> {
+  match do_build(query, vm, options) {
     Ok(val) => Ok(val),
     Err(err) => {
       handle_err::handle_err(&err, query);
@@ -54,7 +54,6 @@ pub fn build(query: &str, vm: &mut VM) -> Result<Instructions, LangErr> {
 }
 
 pub fn exec(program: Program, vm: &mut VM) -> Result<String, LangErr> {
-  // let result = do_exec(program, vm);
   match vm.exec(program) {
     Ok(val) => Ok(val),
     Err(err) => {
