@@ -79,7 +79,7 @@ fn main() {
       };
 
       let program = vm::get_program(instructions);
-      println!("{:#?}", program);
+      // println!("{:#?}", program);
 
       match lang::exec(program, &mut vm) {
         Ok(res) => println!("{}", res),
