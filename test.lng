@@ -2,4 +2,9 @@ a = 5+5 +
 2+2*5-1e2*1.05 +
 ("hello there" * 5 + 2) + 2;
 
-a + b
+c = a + 5;
+d = print! c;
+
+print! "Hello: \"" + d + "\"";
+
+1 // success

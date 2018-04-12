@@ -122,23 +122,24 @@ impl VMExec {
     }
   }
 
-  fn literal_to_string(&self, literal: &Literal) -> String {
+  fn literal_to_string(&self, literal: &Literal, quotes: bool) -> String {
+    let quotes = if quotes {"\""} else {""};
     match literal {
       &Literal::Num(val) => format!("{}", val),
       &Literal::Nil => format!("nil"),
       &Literal::Bool(b) => format!("{}", if b {"true"} else {"false"}),
-      &Literal::String(ref val) => format!("\"{}\"", val),
+      &Literal::String(ref val) => format!("{}{}{}", quotes, val, quotes),
       _ => format!("err")
     }
   }
 
-  fn value_to_string(&self, val: *const Value) -> String {
+  fn value_to_string(&self, val: *const Value, quotes: bool) -> String {
     unsafe {
       match *val {
-        Value::Literal(ref val) => self.literal_to_string(val),
+        Value::Literal(ref val) => self.literal_to_string(val, quotes),
         Value::Variable(ref identifier, _) => match self.variables.get(identifier) {
           Some(val) => match **val {
-            Value::Literal(ref val) => self.literal_to_string(val),
+            Value::Literal(ref val) => self.literal_to_string(val, quotes),
             _ => format!("err")
           },
           None => format!("nil")
@@ -224,6 +225,9 @@ impl VMExec {
               Value::Literal(Literal::String(format!{"{}", first}.repeat(second as usize)))
             },
             (&Literal::String(ref first), &Literal::Num(second), &ADD) => {
+              Value::Literal(Literal::String(format!("{}{}", first, second)))
+            },
+            (&Literal::String(ref first), &Literal::String(ref second), &ADD) => {
               Value::Literal(Literal::String(format!("{}{}", first, second)))
             },
             (&Literal::Num(first), &Literal::String(ref second), &ADD) => {
@@ -321,7 +325,7 @@ impl VMExec {
         match *code {
           END => {
             unsafe {
-              return Ok((*self_point).value_to_string(self.stack_pop()));
+              return Ok((*self_point).value_to_string(self.stack_pop(), true));
             }
           },
           PUSH_NUM => {
@@ -390,7 +394,7 @@ impl VMExec {
             }
 
             unsafe {
-              println!("{}", (*self_point).value_to_string(self.stack_peek()));
+              println!("{}", (*self_point).value_to_string(self.stack_peek(), false));
             }
           },
           POP => {

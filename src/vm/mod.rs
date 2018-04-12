@@ -105,10 +105,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
   let blen = bytes.len();
   while(i < blen) {
     let op = bytes[i];
-
     let code = OPCode::from_i32(op as i32);
-
-    println!("code: {:?}", code);
 
     let mut content = unsafe {
       match code {

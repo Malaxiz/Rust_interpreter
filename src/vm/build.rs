@@ -121,8 +121,6 @@ impl VMBuild {
           _ => 0
         };
 
-        println!("expr: {:?}", **expr);
-
         let mut v = self.build_binary(&*expr, expr_pos)?;
         v.push(u(PRINT));
 
