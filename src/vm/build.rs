@@ -14,15 +14,20 @@ pub enum VMBuildError {
   Temp
 }
 
+fn get_num_binary(num: f64) -> Vec<u8> {
+  let bv: [u8; 8] = unsafe {
+    mem::transmute(num)
+  };
+  bv.to_vec()
+}
+
 pub struct VMBuild {
-  program: Vec<u8>,
   is_debug: bool
 }
 
 impl VMBuild {
   pub fn new() -> Self {
     Self {
-      program: Vec::new(),
       is_debug: false
     }
   }
@@ -126,6 +131,47 @@ impl VMBuild {
 
         if self.is_debug {
           v.push(pos as u8)
+        }
+
+        Ok(v)
+      },
+      &Expression::IfExpr(ref expr, ref body, ref else_body, expr_pos, pos) => {
+        let mut body_v = Vec::new();
+        let mut body_len = 0;
+        for i in body {
+          let decl = self.build_decl(i)?;
+          body_len += decl.len();
+          body_v.push(decl);
+        }
+
+        let mut else_v = Vec::new();
+        let mut else_len = 0;
+        for i in else_body {
+          let decl = self.build_decl(i)?;
+          else_len += decl.len();
+          else_v.push(decl);
+        }
+
+        let offset = if self.is_debug {1} else {0};
+
+        let mut v = self.build_binary(&*expr, expr_pos)?;
+        v.push(u(PUSH_NUM));
+        v.append(&mut get_num_binary((body_len + 9 + offset) as f64));
+        v.push(u(JUMPIFN));
+        if self.is_debug {
+          v.push(expr_pos as u8);
+        }
+
+        for mut i in body_v {
+          v.append(&mut i);
+        }
+
+        v.push(u(PUSH_NUM));
+        v.append(&mut get_num_binary((else_len) as f64));
+        v.push(u(JUMP));
+
+        for mut i in else_v {
+          v.append(&mut i);
         }
 
         Ok(v)

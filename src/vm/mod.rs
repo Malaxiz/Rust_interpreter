@@ -59,7 +59,7 @@ enum_from_primitive! {
     PRINT,
 
     JUMP,
-    JUMPIF,
+    JUMPIFN,
 
     // operation on top two stack values.
     ASSIGN,

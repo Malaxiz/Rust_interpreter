@@ -221,6 +221,11 @@ fn exec_err(err: &VMExecError, query: &str) {
       description = format!("variable {:?} not defined", identifier);
       width = identifier.len() as i32;
     },
+    &VMExecError::InvalidCast(ref literal, ref to, pos) => {
+      title = "VMExecError: InvalidCast";
+      err_pos = pos;
+      description = format!("invalid cast: {:?} to {}", literal, to);
+    },
     _ => {
       title = "VMExecError!";
       description = format!("{:?}", err);

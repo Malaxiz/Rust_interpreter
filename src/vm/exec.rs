@@ -13,8 +13,8 @@ pub enum VMExecError {
 
   // position in bytecode
   InvalidOperationContent(usize),
-
   InvalidIdentifier(String),
+  InvalidCast(Literal, String, i32),
 
   Temp
 }
@@ -386,6 +386,47 @@ impl VMExec {
             let first = self.stack_pop();
             let res = self.literal_operation(first, second, code, pos)?;
             self.stack_push(res);
+          },
+          JUMP => {
+            unsafe {
+              let to = self.stack_pop();
+              let to: usize = match &*to {
+                &Value::Literal(Literal::Num(to)) => to as usize,
+                _ => return Err(VMExecError::Temp)
+              };
+              self.op_i += to;
+            }
+          },
+          JUMPIFN => {
+            unsafe {
+              let mut expr_pos = if self.is_debug {
+                self.consume() as i32
+              } else {
+                0
+              };
+              let to = self.stack_pop();
+              let expr = self.stack_pop();
+              let expr: bool = match &*expr {
+                &Value::Literal(ref literal) => {
+                  match *literal {
+                    Literal::Bool(b) => b,
+                    _ => return Err(VMExecError::InvalidCast(literal.clone(), "String".to_string(), expr_pos))
+                  }
+                },
+                &Value::Variable(ref identifier, _) => {
+                  false
+                },
+                _ => return Err(VMExecError::Temp)
+              };
+
+              if !expr {
+                let to: usize = match &*to {
+                  &Value::Literal(Literal::Num(to)) => to as usize,
+                  _ => return Err(VMExecError::Temp)
+                };
+                self.op_i += to;
+              }
+            }
           },
           PRINT => {
             let mut pos = None;

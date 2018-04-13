@@ -7,4 +7,12 @@ d = print! c;
 
 print! "Hello: \"" + d + "\"";
 
+a = b = 5;
+
+if a >= 5 {
+  print! "a is >= 5"
+} else {
+  print! "uwot"
+};
+
 1 // success
