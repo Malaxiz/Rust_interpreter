@@ -21,6 +21,13 @@ fn get_num_binary(num: f64) -> Vec<u8> {
   bv.to_vec()
 }
 
+fn get_pos_binary(pos: i32) -> Vec<u8> {
+  let bv: [u8; 4] = unsafe {
+    mem::transmute(pos)
+  };
+  bv.to_vec()
+}
+
 pub struct VMBuild {
   is_debug: bool
 }
@@ -69,7 +76,8 @@ impl VMBuild {
             &(_, pos) => pos
           };
 
-          left.push(pos as u8); 
+          left.push(u(DEBUG_POS)); 
+          left.append(&mut get_pos_binary(pos));
         }
 
         Ok(left)
@@ -84,7 +92,8 @@ impl VMBuild {
             v.push(u(PUSH_VAR));
             
             if self.is_debug {
-              v.push(pos as u8);
+              v.push(u(DEBUG_POS)); 
+              v.append(&mut get_pos_binary(pos));
             }
 
             Ok(v)
@@ -130,7 +139,8 @@ impl VMBuild {
         v.push(u(PRINT));
 
         if self.is_debug {
-          v.push(pos as u8)
+          v.push(u(DEBUG_POS)); 
+          v.append(&mut get_pos_binary(pos));
         }
 
         Ok(v)
@@ -159,7 +169,8 @@ impl VMBuild {
         v.append(&mut get_num_binary((body_len + 9 + offset) as f64));
         v.push(u(JUMPIFN));
         if self.is_debug {
-          v.push(expr_pos as u8);
+          v.push(u(DEBUG_POS)); 
+          v.append(&mut get_pos_binary(expr_pos));
         }
 
         for mut i in body_v {

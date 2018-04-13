@@ -34,6 +34,8 @@ pub enum Value {
   None,
 }
 
+// fn get_binary_pos(Vec<u8>)
+
 struct Root {
   pool: Vec<Box<Value>>
 }
@@ -96,6 +98,11 @@ impl VMExec {
     self.program[self.op_i].val
   }
 
+  fn consume_op(&mut self) -> &Operation {
+    self.op_i += 1;
+    &self.program[self.op_i]
+  }
+
   fn stack_push(&mut self, val: *const Value) {
     self.stack[self.stacki] = val;
     self.stacki += 1;
@@ -119,6 +126,22 @@ impl VMExec {
         Value::None => NIL,
         _ => val
       }
+    }
+  }
+
+  fn get_debug_pos(&mut self) -> Result<Option<i32>, VMExecError> {
+    if self.is_debug {
+      let self_point: *mut Self = self;
+      let debug_pos = self.consume_op();
+      unsafe {
+        (*self_point).op_i += 4;
+      }
+      Ok(Some(match debug_pos.content {
+        OperationLiteral::Pos(pos) => pos,
+        _ => return Err(VMExecError::Temp)
+      }))
+    } else {
+      Ok(None)
     }
   }
 
@@ -359,10 +382,7 @@ impl VMExec {
           },
           PUSH_VAR => {
             unsafe {
-              let mut pos = None;
-              if self.is_debug {
-                pos = Some(self.consume() as i32);
-              }
+              let mut pos = self.get_debug_pos()?;
 
               let identifier = self.stack_pop();
               let identifier = match &*identifier {
@@ -377,10 +397,7 @@ impl VMExec {
           },
           ADD | SUB | MULTIPLY | ASSIGN | DIVIDE |
           GT | LT | GTOREQ | LTOREQ => {
-            let mut pos = None;
-            if self.is_debug {
-              pos = Some(self.consume() as i32);
-            }
+            let pos = self.get_debug_pos()?;
 
             let second = self.stack_pop();
             let first = self.stack_pop();
@@ -399,11 +416,11 @@ impl VMExec {
           },
           JUMPIFN => {
             unsafe {
-              let mut expr_pos = if self.is_debug {
-                self.consume() as i32
-              } else {
-                0
+              let mut expr_pos = match self.get_debug_pos()? {
+                Some(pos) => pos,
+                None => 0
               };
+
               let to = self.stack_pop();
               let expr = self.stack_pop();
               let expr: bool = match &*expr {
@@ -429,10 +446,7 @@ impl VMExec {
             }
           },
           PRINT => {
-            let mut pos = None;
-            if self.is_debug {
-              pos = Some(self.consume() as i32);
-            }
+            let mut pos = self.get_debug_pos()?;
 
             unsafe {
               println!("{}", (*self_point).value_to_string(self.stack_peek(), false));

@@ -48,6 +48,8 @@ enum_from_primitive! {
     DEBUG_CODE,
     DEBUG_CODE_END,
 
+    DEBUG_POS, //i32, 4b
+
     PUSH_NUM,
     PUSH_BOOL,
     PUSH_STRING,
@@ -88,6 +90,7 @@ bitflags! {
 pub enum OperationLiteral {
   Num(f64),
   String(String, usize),
+  Pos(i32),
 
   None
 }
@@ -111,7 +114,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
       match code {
         Some(val) => match val {
           PUSH_NUM => {
-            if i + 8 <= blen {
+            if i + 8 < blen {
               let mut content_vec: [u8; 8] = [0x00; 8];
               for j in 0..8 {
                 let op = bytes[i+j+1];
@@ -128,7 +131,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
             let content = OperationLiteral::None;
             let mut is_invalid = false;
             loop {
-              if i + j + 1 >= blen { // invalid
+              if i + j + 1 > blen { // invalid
                 is_invalid = true;
                 break;
               }
@@ -150,13 +153,24 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
             } else {
               OperationLiteral::None
             }
-          }
+          },
+          DEBUG_POS => {
+            if i + 4 < blen {
+              let mut content_vec: [u8; 4] = [0x00; 4];
+              for j in 0..4 {
+                let op = bytes[i+j+1];
+                content_vec[j] = op;
+              }
+              OperationLiteral::Pos(mem::transmute::<[u8; 4], i32>(content_vec)) 
+            } else {
+              OperationLiteral::None
+            }
+          },
           _ => OperationLiteral::None
         },
         None => OperationLiteral::None
       }
     };
-
     program.push(Operation {
       code,
       val: op,
