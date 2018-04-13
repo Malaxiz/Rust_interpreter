@@ -21,7 +21,7 @@ fn get_num_binary(num: f64) -> Vec<u8> {
   bv.to_vec()
 }
 
-fn get_pos_binary(pos: i32) -> Vec<u8> {
+fn get_int_binary(pos: i32) -> Vec<u8> {
   let bv: [u8; 4] = unsafe {
     mem::transmute(pos)
   };
@@ -76,8 +76,8 @@ impl VMBuild {
             &(_, pos) => pos
           };
 
-          left.push(u(DEBUG_POS)); 
-          left.append(&mut get_pos_binary(pos));
+          left.push(u(I32)); 
+          left.append(&mut get_int_binary(pos));
         }
 
         Ok(left)
@@ -92,8 +92,8 @@ impl VMBuild {
             v.push(u(PUSH_VAR));
             
             if self.is_debug {
-              v.push(u(DEBUG_POS)); 
-              v.append(&mut get_pos_binary(pos));
+              v.push(u(I32));
+              v.append(&mut get_int_binary(pos));
             }
 
             Ok(v)
@@ -139,8 +139,8 @@ impl VMBuild {
         v.push(u(PRINT));
 
         if self.is_debug {
-          v.push(u(DEBUG_POS)); 
-          v.append(&mut get_pos_binary(pos));
+          v.push(u(I32)); 
+          v.append(&mut get_int_binary(pos));
         }
 
         Ok(v)
@@ -162,24 +162,27 @@ impl VMBuild {
           else_v.push(decl);
         }
 
-        let offset = if self.is_debug {1} else {0};
+        let mut debug_info = vec![];
+        if self.is_debug {
+          debug_info.push(u(I32));
+          debug_info.append(&mut get_int_binary(expr_pos));
+        }
 
         let mut v = self.build_binary(&*expr, expr_pos)?;
-        v.push(u(PUSH_NUM));
-        v.append(&mut get_num_binary((body_len + 9 + offset) as f64));
+
         v.push(u(JUMPIFN));
-        if self.is_debug {
-          v.push(u(DEBUG_POS)); 
-          v.append(&mut get_pos_binary(expr_pos));
-        }
+        // println!("tojump: {}", (body_len as i32) + 5);
+        v.append(&mut debug_info);
+        v.push(u(I32));
+        v.append(&mut get_int_binary((body_len as i32) + 6)); // 6 magic offset = u(JUMP) + u(I32) + 1
 
         for mut i in body_v {
           v.append(&mut i);
         }
 
-        v.push(u(PUSH_NUM));
-        v.append(&mut get_num_binary((else_len) as f64));
         v.push(u(JUMP));
+        v.push(u(I32));
+        v.append(&mut get_int_binary(else_len as i32));
 
         for mut i in else_v {
           v.append(&mut i);

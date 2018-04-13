@@ -53,7 +53,7 @@ impl Root {
 }
 
 pub struct VMExec {
-  op_i: usize,
+  op_i: i32,
   program: Vec<Operation>,
 
   variables: HashMap<String, *const Value>,
@@ -95,12 +95,12 @@ impl VMExec {
 
   fn consume(&mut self) -> u8 {
     self.op_i += 1;
-    self.program[self.op_i].val
+    self.program[self.op_i as usize].val
   }
 
   fn consume_op(&mut self) -> &Operation {
     self.op_i += 1;
-    &self.program[self.op_i]
+    &self.program[self.op_i as usize]
   }
 
   fn stack_push(&mut self, val: *const Value) {
@@ -129,17 +129,21 @@ impl VMExec {
     }
   }
 
+  fn get_int(&mut self) -> Result<i32, VMExecError> {
+    let self_point: *mut Self = self;
+    let int = self.consume_op();
+    unsafe {
+      (*self_point).op_i += 4;
+    }
+    Ok(match int.content {
+      OperationLiteral::Pos(pos) => pos,
+      _ => return Err(VMExecError::Temp)
+    })
+  }
+
   fn get_debug_pos(&mut self) -> Result<Option<i32>, VMExecError> {
     if self.is_debug {
-      let self_point: *mut Self = self;
-      let debug_pos = self.consume_op();
-      unsafe {
-        (*self_point).op_i += 4;
-      }
-      Ok(Some(match debug_pos.content {
-        OperationLiteral::Pos(pos) => pos,
-        _ => return Err(VMExecError::Temp)
-      }))
+      Ok(Some(self.get_int()?))
     } else {
       Ok(None)
     }
@@ -303,7 +307,7 @@ impl VMExec {
 
     loop {
       let op: &Operation = unsafe {
-        &((*self_point).program[self.op_i])
+        &((*self_point).program[self.op_i as usize])
       };
       let code: &Option<OPCode> = &op.code;
       let content = &op.content;
@@ -319,7 +323,7 @@ impl VMExec {
               loop {
                 self.op_i += 1;
                 let op: &Operation = unsafe {
-                  &((*self_point).program[self.op_i])
+                  &((*self_point).program[self.op_i as usize])
                 };
                 let code: &Option<OPCode> = &op.code;
                 if let &Some(ref code) = code {
@@ -354,7 +358,7 @@ impl VMExec {
           PUSH_NUM => {
             let val = Box::new(Value::Literal(Literal::Num(match content {
               &OperationLiteral::Num(num) => num,
-              _ => return Err(VMExecError::InvalidOperationContent(self.op_i))
+              _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
             })));
             self.op_i += 8; // offset of f64
             let val_point = &*val as *const Value;
@@ -371,10 +375,10 @@ impl VMExec {
           PUSH_STRING => {
             let val = Box::new(Value::Literal(Literal::String(match content {
               &OperationLiteral::String(ref s, len) => {
-                self.op_i += len; // offset of string
+                self.op_i += len as i32; // offset of string
                 s.to_owned()
               },
-              _ => return Err(VMExecError::InvalidOperationContent(self.op_i))
+              _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
             })));
             let val_point = &*val as *const Value;
             self.root.pool.push(val);
@@ -406,11 +410,13 @@ impl VMExec {
           },
           JUMP => {
             unsafe {
-              let to = self.stack_pop();
-              let to: usize = match &*to {
-                &Value::Literal(Literal::Num(to)) => to as usize,
-                _ => return Err(VMExecError::Temp)
-              };
+              let to = self.get_int()?;
+              // let to = self.stack_pop();
+              // let to: f64 = match &*to {
+              //   &Value::Literal(Literal::Num(to)) => to as f64,
+              //   _ => return Err(VMExecError::Temp)
+              // };
+              // println!("to: {}", to);
               self.op_i += to;
             }
           },
@@ -421,7 +427,8 @@ impl VMExec {
                 None => 0
               };
 
-              let to = self.stack_pop();
+              // let to = self.stack_pop();
+              let to = self.get_int()?;
               let expr = self.stack_pop();
               let expr: bool = match &*expr {
                 &Value::Literal(ref literal) => {
@@ -437,10 +444,7 @@ impl VMExec {
               };
 
               if !expr {
-                let to: usize = match &*to {
-                  &Value::Literal(Literal::Num(to)) => to as usize,
-                  _ => return Err(VMExecError::Temp)
-                };
+                // println!("jumping to: {:#?}", vec!(&self.program[self.op_i + to - 2], &self.program[self.op_i + to - 1], &self.program[self.op_i + to]));
                 self.op_i += to;
               }
             }

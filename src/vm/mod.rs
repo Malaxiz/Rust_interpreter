@@ -48,7 +48,8 @@ enum_from_primitive! {
     DEBUG_CODE,
     DEBUG_CODE_END,
 
-    DEBUG_POS, //i32, 4b
+    // DEBUG_POS, //i32, 4b
+    I32, // i32, 4b
 
     PUSH_NUM,
     PUSH_BOOL,
@@ -154,7 +155,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
               OperationLiteral::None
             }
           },
-          DEBUG_POS => {
+          I32 => {
             if i + 4 < blen {
               let mut content_vec: [u8; 4] = [0x00; 4];
               for j in 0..4 {
