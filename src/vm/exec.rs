@@ -22,6 +22,7 @@ pub enum VMExecError {
 #[derive(Clone, Debug)]
 pub enum Literal {
   Num(f64),
+  Int(i32),
   Bool(bool),
   String(String),
   Nil
@@ -37,13 +38,15 @@ pub enum Value {
 // fn get_binary_pos(Vec<u8>)
 
 struct Root {
-  pool: Vec<Box<Value>>
+  pool: Vec<Box<Value>>,
+  scopes: Vec<Box<Scope>>
 }
 
 impl Root {
   pub fn new() -> Self {
     Self {
-      pool: Vec::new()
+      pool: Vec::new(),
+      scopes: Vec::new()
     }
   }
 
@@ -52,14 +55,37 @@ impl Root {
   }
 }
 
+struct Scope {
+  root: *mut Root,
+  parent: Option<*mut Scope>,
+  variables: HashMap<String, *const Value>,
+}
+
+impl Scope {
+  pub fn new(root: *mut Root, parent: Option<*mut Scope>) -> Self {
+    Self {
+      root,
+      parent,
+      variables: HashMap::new()
+    }
+  }
+}
+
 pub struct VMExec {
   op_i: i32,
   program: Vec<Operation>,
 
-  variables: HashMap<String, *const Value>,
+  // scopes
+
+  // variables: HashMap<String, *const Value>,
   root: Root,
+
   stack: [*const Value; 512],
   stacki: usize,
+  jump_stack: [*const Value; 512],
+  jump_stacki: usize,
+  scope_stack: [Option<*mut Scope>; 512],
+  scope_stacki: usize,
 
   pub query: String,
 
@@ -69,20 +95,34 @@ pub struct VMExec {
 
 impl VMExec {
   pub fn new() -> Self {
-    Self {
+    let root = Root::new();
+    
+    let mut this = Self {
       op_i: 0,
       program: Vec::new(),
 
-      variables: HashMap::new(),
-      root: Root::new(),
+      // variables: HashMap::new(),
+      root,
+
       stack: [&Value::None; 512],
       stacki: 0,
+      jump_stack: [&Value::None; 512],
+      jump_stacki: 0,
+      scope_stack: [None; 512],
+      scope_stacki: 0,
 
       query: String::from(""),
 
       is_debug: false,
       contains_code: false,
-    }
+    };
+
+    let mut scope = Box::new(Scope::new(&mut this.root as *mut Root, None));
+    let mut scope_point = &mut *scope as *mut Scope;
+    this.root.scopes.push(scope);
+    this.scope_stack[0] = Some(scope_point);
+
+    this
   }
 
   fn reset(&mut self) {
@@ -129,6 +169,39 @@ impl VMExec {
     }
   }
 
+  fn jump_stack_push(&mut self, val: *const Value) {
+    self.jump_stack[self.jump_stacki] = val;
+    self.jump_stacki += 1;
+  }
+
+  fn jump_stack_pop(&mut self) -> *const Value {
+    if self.jump_stacki <= 0 {
+      return NIL;
+    }
+    self.jump_stacki -= 1;
+    self.jump_stack[self.jump_stacki]
+  }
+
+  fn scope_stack_peek(&self) -> Result<*mut Scope, VMExecError> {
+    println!("scopei: {}, {:?}", self.scope_stacki, self.scope_stack[self.scope_stacki]);
+
+    match self.scope_stack[self.scope_stacki] {
+      Some(val) => Ok(val),
+      None => Err(VMExecError::Temp)
+    }
+  }
+
+  fn scope_stack_push(&mut self, val: *mut Scope) {
+    self.scope_stacki += 1;
+    self.scope_stack[self.scope_stacki] = Some(val);
+  }
+
+  // fn scope_stack_pop(&mut self) -> *mut Scope {
+  //   let to_return = self.scope_stack[self.scope_stacki];
+  //   self.scope_stacki -= 1;
+  //   to_return
+  // }
+
   fn get_int(&mut self) -> Result<i32, VMExecError> {
     let self_point: *mut Self = self;
     let int = self.consume_op();
@@ -136,7 +209,7 @@ impl VMExec {
       (*self_point).op_i += 4;
     }
     Ok(match int.content {
-      OperationLiteral::Pos(pos) => pos,
+      OperationLiteral::Int(pos) => pos,
       _ => return Err(VMExecError::Temp)
     })
   }
@@ -160,11 +233,14 @@ impl VMExec {
     }
   }
 
-  fn value_to_string(&self, val: *const Value, quotes: bool) -> String {
+  fn value_to_string(&self, val: *const Value, quotes: bool) -> Result<String, VMExecError> {
     unsafe {
-      match *val {
+      let mut scope = {
+        &*self.scope_stack_peek()?
+      };
+      Ok(match *val {
         Value::Literal(ref val) => self.literal_to_string(val, quotes),
-        Value::Variable(ref identifier, _) => match self.variables.get(identifier) {
+        Value::Variable(ref identifier, _) => match scope.variables.get(identifier) {
           Some(val) => match **val {
             Value::Literal(ref val) => self.literal_to_string(val, quotes),
             _ => format!("err")
@@ -172,7 +248,7 @@ impl VMExec {
           None => format!("nil")
         },
         _ => format!("None")
-      }
+      })
     }
   }
 
@@ -189,10 +265,14 @@ impl VMExec {
     let mut val1 = val1f;
     let mut val2 = val2f;
 
+    let mut scope = unsafe {
+      &*self.scope_stack_peek()?
+    };
+
     unsafe {
       if !is_assignment {
         if let &Value::Variable(ref identifier, pos) = &*val1f {
-          val1 = match self.variables.get(identifier) {
+          val1 = match scope.variables.get(identifier) {
             Some(val) => *val,
             None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
               Some(pos) => pos,
@@ -202,7 +282,7 @@ impl VMExec {
         }
       }
       if let &Value::Variable(ref identifier, pos) = &*val2f {
-        val2 = match self.variables.get(identifier) {
+        val2 = match scope.variables.get(identifier) {
           Some(val) => *val,
           None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
             Some(pos) => pos,
@@ -272,7 +352,10 @@ impl VMExec {
         (&Value::Variable(ref identifier, _), &Value::Literal(ref lit)) => {
           match (lit, operation) {
             (_, &ASSIGN) => {
-              self.variables.insert(identifier.to_string(), val2);
+              let mut scope = unsafe {
+                &mut *self.scope_stack_peek()?
+              };
+              scope.variables.insert(identifier.to_string(), val2);
               Ok(val2) // might be memory error
             },
             _ => {
@@ -285,7 +368,7 @@ impl VMExec {
     }
   }
 
-  fn print_stack(self) {
+  fn print_stack(&self) {
     print!("stack: {}\n---------\n", self.stacki);
     for (i, v) in self.stack.iter().enumerate() {
       unsafe {
@@ -348,11 +431,14 @@ impl VMExec {
           self.op_i += 1;
           continue;
         }
+
+        println!("code: {:#?}", code);
+        // self.print_stack();
         
         match *code {
           END => {
             unsafe {
-              return Ok((*self_point).value_to_string(self.stack_pop(), true));
+              return Ok((*self_point).value_to_string(self.stack_pop(), true)?);
             }
           },
           PUSH_NUM => {
@@ -364,6 +450,26 @@ impl VMExec {
             let val_point = &*val as *const Value;
             self.root.pool.push(val);
             self.stack_push(val_point);
+          },
+          PUSH_INT => {
+            let val = Box::new(Value::Literal(Literal::Int(match content {
+              &OperationLiteral::Int(int) => int,
+              _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
+            })));
+            self.op_i += 4; // offset of i32
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
+          },
+          PUSH_JUMP => {
+            let val = Box::new(Value::Literal(Literal::Int(match content {
+              &OperationLiteral::Int(int) => int,
+              _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
+            })));
+            self.op_i += 4; // offset of i32
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.jump_stack_push(val_point);
           },
           PUSH_BOOL => {
             let b = self.consume();
@@ -399,6 +505,9 @@ impl VMExec {
               self.stack_push(val_point);
             }
           },
+          PUSH_NIL => {
+            self.stack_push(NIL);
+          },
           ADD | SUB | MULTIPLY | ASSIGN | DIVIDE |
           GT | LT | GTOREQ | LTOREQ => {
             let pos = self.get_debug_pos()?;
@@ -408,6 +517,12 @@ impl VMExec {
             let res = self.literal_operation(first, second, code, pos)?;
             self.stack_push(res);
           },
+          SCOPE_NEW => {
+            // println!("scope_new");
+          },
+          SCOPE_END => {
+            // println!("scope_end");
+          },
           JUMP => {
             unsafe {
               let to = self.get_int()?;
@@ -416,7 +531,21 @@ impl VMExec {
               //   &Value::Literal(Literal::Num(to)) => to as f64,
               //   _ => return Err(VMExecError::Temp)
               // };
-              // println!("to: {}", to);
+              println!("jumplength: {}", to);
+              println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
+              self.op_i += to;
+            }
+          },
+          JUMPSTACK => {
+            unsafe {
+              let to: i32 = match &*self.jump_stack_pop() {
+                &Value::Literal(Literal::Int(to)) => to as i32,
+                _ => {
+                  return Err(VMExecError::Temp)
+                }
+              };
+              println!("jumplength: {}", to);
+              println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
               self.op_i += to;
             }
           },
@@ -453,13 +582,16 @@ impl VMExec {
             let mut pos = self.get_debug_pos()?;
 
             unsafe {
-              println!("{}", (*self_point).value_to_string(self.stack_peek(), false));
+              println!("{}", (*self_point).value_to_string(self.stack_peek(), false)?);
             }
           },
           POP => {
             self.stack_pop();
           }
-          _ => return Err(VMExecError::UnsupportedOPCode(format!("{:?}", op)))
+          _ => {
+            self.print_stack();
+            return Err(VMExecError::UnsupportedOPCode(format!("{:?}", op)));
+          }
         };
 
         self.op_i += 1;

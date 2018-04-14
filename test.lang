@@ -9,16 +9,20 @@ print! "Hello: \"" + d + "\"";
 
 a = b = 5;
 
-if a < 5 {
+if a <= 5 {
+  asf = 5;
   print! "a is >= 5";
 } else {
   print! "uwot";
 };
 
-i = 0;
-//while i < 10 {
+asf
+
+//i = 0;
+//c = while i < 10 {
 //  print! "i is: " + i;
 //  i = i + 1;
+//  "a" + i
 //};
 
-1 // success
+//1 // success

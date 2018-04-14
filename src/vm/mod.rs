@@ -52,17 +52,23 @@ enum_from_primitive! {
     I32, // i32, 4b
 
     PUSH_NUM,
+    PUSH_INT,
+    PUSH_JUMP, // position for a JUMPSTACK to use, gets pushed to a separate stack
     PUSH_BOOL,
     PUSH_STRING,
     PUSH_VAR,
     PUSH_NIL,
 
     POP,
-
     PRINT,
+
+    SCOPE_NEW,
+    SCOPE_END,
+    SCOPE_PUSH, // for instances, not implemented
 
     JUMP,
     JUMPIFN,
+    JUMPSTACK,
 
     // operation on top two stack values.
     ASSIGN,
@@ -91,7 +97,7 @@ bitflags! {
 pub enum OperationLiteral {
   Num(f64),
   String(String, usize),
-  Pos(i32),
+  Int(i32),
 
   None
 }
@@ -155,14 +161,14 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
               OperationLiteral::None
             }
           },
-          I32 => {
+          I32 | PUSH_INT | PUSH_JUMP => {
             if i + 4 < blen {
               let mut content_vec: [u8; 4] = [0x00; 4];
               for j in 0..4 {
                 let op = bytes[i+j+1];
                 content_vec[j] = op;
               }
-              OperationLiteral::Pos(mem::transmute::<[u8; 4], i32>(content_vec)) 
+              OperationLiteral::Int(mem::transmute::<[u8; 4], i32>(content_vec))
             } else {
               OperationLiteral::None
             }

@@ -168,7 +168,9 @@ impl VMBuild {
           debug_info.append(&mut get_int_binary(expr_pos));
         }
 
-        let mut v = self.build_binary(&*expr, expr_pos)?;
+        let mut v = vec![u(SCOPE_NEW)];
+
+        v.append(&mut self.build_binary(&*expr, expr_pos)?);
 
         v.push(u(JUMPIFN));
         // println!("tojump: {}", (body_len as i32) + 5);
@@ -188,7 +190,85 @@ impl VMBuild {
           v.append(&mut i);
         }
 
+        v.push(u(SCOPE_END));
+
         Ok(v)
+      },
+      &Expression::WhileExpr(ref expr, ref body, expr_pos, pos) => {
+        let mut body_v = Vec::new();
+        let mut body_len: i32 = 0;
+        for i in body {
+          let decl = self.build_decl(i)?;
+          body_len += decl.len() as i32;
+          body_v.push(decl);
+        }
+
+        let mut debug_info = vec![];
+        if self.is_debug {
+          debug_info.push(u(I32));
+          debug_info.append(&mut get_int_binary(expr_pos));
+        }
+
+        let last_is_stmt: bool = match *(*body)[body.len() - 1] {
+          Declaration::Statement(ref stmt, _) => match **stmt {
+            Statement::ExpressionStmt(_, is_stmt, _) => is_stmt,
+            _ => false
+          },
+          _ => false
+        };
+
+        let mut expr = self.build_binary(&*expr, expr_pos)?;
+        let expr_len = expr.len() as i32;
+
+        let mut v: Vec<u8> = Vec::new();
+
+        v.push(u(JUMP));                // 1. Jump
+        v.push(u(I32));
+        v.append(&mut get_int_binary(expr_len + 1 + 5 + 6 + 11 + 1 + 6 - 5));
+
+        v.append(&mut expr);            // 2. Expr
+
+        v.push(u(JUMPSTACK));           // 3. JumpStack
+
+        v.push(u(PUSH_JUMP));            // 4. PushInt
+        v.append(&mut get_int_binary(5));
+
+        v.push(u(JUMP));                // 5. Jump
+        v.push(u(I32));
+        v.append(&mut get_int_binary(-(5 + 1 + expr_len)));
+
+        v.push(u(JUMPIFN));             // 6. JumpIfNot
+        v.push(u(I32));
+        v.append(&mut get_int_binary(1 + 6 + 5 + 6 + 11 + body_len + 6));
+
+        v.push(u(POP));                 // 7. Pop
+
+        v.push(u(JUMP));                // 8. Jump
+        v.push(u(I32));
+        v.append(&mut get_int_binary(5 + 6 + 11));
+
+        v.push(u(PUSH_JUMP));            // 9. PushInt
+        v.append(&mut get_int_binary(5 + 6 + 11 + 1 + 6 + 5 + 6));
+
+        v.push(u(JUMP));                // 10. Jump
+        v.push(u(I32));
+        v.append(&mut get_int_binary(-(5 + 6 + 1 + 11 + 6 + 5 + 1 + expr_len + 1)));
+
+        v.push(u(JUMPIFN));             // 11. JumpIfNot
+        v.push(u(I32));
+        v.append(&mut get_int_binary(body_len + 6));
+
+        for mut i in body_v {           // 12. Body
+          v.append(&mut i);
+        }
+
+        v.push(u(JUMP));                // 13. Jump
+        v.push(u(I32));
+        v.append(&mut get_int_binary(-(body_len + 11 + 6 + 5 + 6 + 1 + 11 + 6 + 5)));
+
+        Ok(v)
+        // println!("{:?}", get_program(v));
+        // Ok(vec![u(PUSH_NIL)])
       },
       _ => return Err(VMBuildError::InvalidExpression(format!("{:?}", expr), pos))
     }
