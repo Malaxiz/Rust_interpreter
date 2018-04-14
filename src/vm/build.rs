@@ -202,10 +202,12 @@ impl VMBuild {
           body_v.push(decl);
         }
 
+        let mut debug_offset = 0;
         let mut debug_info = vec![];
         if self.is_debug {
           debug_info.push(u(I32));
           debug_info.append(&mut get_int_binary(expr_pos));
+          debug_offset = 5;
         }
 
         let last_is_stmt: bool = match *(*body)[body.len() - 1] {
@@ -221,22 +223,26 @@ impl VMBuild {
 
         let mut v: Vec<u8> = Vec::new();
 
+        v.push(u(SCOPE_NEW));
         v.push(u(JUMP));                // 1. Jump
         v.push(u(I32));
-        v.append(&mut get_int_binary(expr_len + 1 + 5 + 6 + 11 + 1 + 6 - 5));
+        v.append(&mut get_int_binary(expr_len + 1 + 5 + 6 + 11 + 1 + 6 - 5 + 2 + debug_offset));
 
-        v.append(&mut expr);            // 2. Expr
+        v.push(u(SCOPE_BACK));          // 2. Expr
+        v.append(&mut expr);
+        v.push(u(SCOPE_FORWARD));
 
         v.push(u(JUMPSTACK));           // 3. JumpStack
 
         v.push(u(PUSH_JUMP));            // 4. PushInt
-        v.append(&mut get_int_binary(5));
+        v.append(&mut get_int_binary(5 + 1 + 5));
 
         v.push(u(JUMP));                // 5. Jump
         v.push(u(I32));
-        v.append(&mut get_int_binary(-(5 + 1 + expr_len)));
+        v.append(&mut get_int_binary(-(5 + 1 + 1 + expr_len + 1 + 5 + 1)));
 
         v.push(u(JUMPIFN));             // 6. JumpIfNot
+        v.append(&mut debug_info.clone());
         v.push(u(I32));
         v.append(&mut get_int_binary(1 + 6 + 5 + 6 + 11 + body_len + 6));
 
@@ -247,13 +253,14 @@ impl VMBuild {
         v.append(&mut get_int_binary(5 + 6 + 11));
 
         v.push(u(PUSH_JUMP));            // 9. PushInt
-        v.append(&mut get_int_binary(5 + 6 + 11 + 1 + 6 + 5 + 6));
+        v.append(&mut get_int_binary(5 + 6 + 11 + 1 + 6 + 5 + 6 - 3 - 2 + debug_offset));
 
         v.push(u(JUMP));                // 10. Jump
         v.push(u(I32));
-        v.append(&mut get_int_binary(-(5 + 6 + 1 + 11 + 6 + 5 + 1 + expr_len + 1)));
+        v.append(&mut get_int_binary(-(5 + 6 + 1 + 11 + 6 + 5 + 1 + expr_len + 1 + 2 + debug_offset)));
 
         v.push(u(JUMPIFN));             // 11. JumpIfNot
+        v.append(&mut debug_info);
         v.push(u(I32));
         v.append(&mut get_int_binary(body_len + 6));
 
@@ -263,7 +270,9 @@ impl VMBuild {
 
         v.push(u(JUMP));                // 13. Jump
         v.push(u(I32));
-        v.append(&mut get_int_binary(-(body_len + 11 + 6 + 5 + 6 + 1 + 11 + 6 + 5)));
+        v.append(&mut get_int_binary(-(body_len + 5 + debug_offset + 1 + 5 + 1 + 5 + 5 + 1 + 1 + 5 + debug_offset + 1 + 5 + 1 + 5 + 1 + 5)));
+
+        v.push(u(SCOPE_END));
 
         Ok(v)
         // println!("{:?}", get_program(v));

@@ -1,28 +1,27 @@
-a = 5+5 +
-2+2*5-1e2*1.05 +
-("hello there" * 5 + 2) + 2;
+//a = 5+5 +
+//2+2*5-1e2*1.05 +
+//("hello there" * 5 + 2) + 2;
 
-c = a + 5;
-d = print! c;
+//c = a + 5;
+//d = print! c;
 
-print! "Hello: \"" + d + "\"";
+//print! "Hello: \"" + d + "\"";
 
-a = b = 4.9999;
+//a = b = 4.9999;
 
-if a <= 5 {
-  asf = 5;
-  print! "a is >= 5";
-} else {
-  print! "uwot";
+//if a <= 5 {
+//  print! "a is >= 5";
+//} else {
+//  print! "uwot";
+//}
+
+i = 0;
+c = while i < 10 {
+  print! "i is: " + i;
+  i = i + 1;
+  "a" + i
 };
 
-asf
-
-//i = 0;
-//c = while i < 10 {
-//  print! "i is: " + i;
-//  i = i + 1;
-//  "a" + i
-//};
+c
 
 //1 // success

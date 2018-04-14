@@ -56,7 +56,7 @@ enum_from_primitive! {
     PUSH_JUMP, // position for a JUMPSTACK to use, gets pushed to a separate stack
     PUSH_BOOL,
     PUSH_STRING,
-    PUSH_VAR,
+    PUSH_VAR, // pops a string from the stack
     PUSH_NIL,
 
     POP,

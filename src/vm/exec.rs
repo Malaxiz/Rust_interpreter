@@ -261,7 +261,10 @@ impl VMExec {
     }
     Ok(match int.content {
       OperationLiteral::Int(pos) => pos,
-      _ => return Err(VMExecError::Temp)
+      _ => {
+        println!("here2: {:?}", int.content);
+        return Err(VMExecError::Temp)
+      }
     })
   }
 
@@ -486,8 +489,13 @@ impl VMExec {
           continue;
         }
 
-        println!("code: {:#?}", code);
-        // self.print_stack();
+        {
+          let cont = format!("{:#?}", code);
+          let mut repeat: i32 = 14 - cont.len() as i32;
+          repeat = if repeat < 0 {0} else {repeat};
+          println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
+          // self.print_stack();
+        }
         
         match *code {
           END => {
@@ -581,14 +589,15 @@ impl VMExec {
           SCOPE_END => {
             self.scope_stack_pop()?;
           },
+          SCOPE_FORWARD => {
+            self.scope_stacki += 1;
+          },
+          SCOPE_BACK => {
+            self.scope_stacki -= 1;
+          },
           JUMP => {
             unsafe {
               let to = self.get_int()?;
-              // let to = self.stack_pop();
-              // let to: f64 = match &*to {
-              //   &Value::Literal(Literal::Num(to)) => to as f64,
-              //   _ => return Err(VMExecError::Temp)
-              // };
               println!("jumplength: {}", to);
               println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
               self.op_i += to;
@@ -627,7 +636,10 @@ impl VMExec {
                 &Value::Variable(ref identifier, _) => {
                   false
                 },
-                _ => return Err(VMExecError::Temp)
+                _ => {
+                  print!("here");
+                  return Err(VMExecError::Temp);
+                }
               };
 
               if !expr {
