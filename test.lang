@@ -7,9 +7,7 @@ d = print! c;
 
 print! "Hello: \"" + d + "\"";
 
-a = b = 5;
-
-asdf;
+a = b = 4.9999;
 
 if a <= 5 {
   asf = 5;

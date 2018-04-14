@@ -168,9 +168,8 @@ impl VMBuild {
           debug_info.append(&mut get_int_binary(expr_pos));
         }
 
-        let mut v = vec![u(SCOPE_NEW)];
-
-        v.append(&mut self.build_binary(&*expr, expr_pos)?);
+        let mut v = self.build_binary(&*expr, expr_pos)?;
+        v.push(u(SCOPE_NEW));
 
         v.push(u(JUMPIFN));
         // println!("tojump: {}", (body_len as i32) + 5);

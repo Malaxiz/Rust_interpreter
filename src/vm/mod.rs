@@ -64,6 +64,8 @@ enum_from_primitive! {
 
     SCOPE_NEW,
     SCOPE_END,
+    SCOPE_FORWARD, // moves scope_stacki
+    SCOPE_BACK,
     SCOPE_PUSH, // for instances, not implemented
 
     JUMP,

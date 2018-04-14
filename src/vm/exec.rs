@@ -70,12 +70,49 @@ impl Scope {
     }
   }
 
-  pub fn get_var(identifier: &str) -> Option<*const Value> {
-    None
+  pub fn get_var(&self, identifier: &str) -> Option<*const Value> {
+    match self.variables.get(identifier) {
+      Some(val) => Some(*val),
+      None => match self.parent {
+        Some(parent) => unsafe {
+          (*parent).get_var(identifier)
+        },
+        None => None
+      }
+    }
   }
   
-  pub fn set_var(identifier: &str, val: *const Value) {
+  fn find_and_set(&mut self, identifier: &str, val: *const Value) -> bool { // -> did set variable
+    match self.parent {
+      Some(parent) => unsafe {
+        if (&mut *parent).find_and_set(identifier, val) {
+          true
+        } else {
+          match self.get_var(identifier) {
+            Some(_) => {
+              self.variables.insert(identifier.to_string(), val);
+              true
+            },
+            None => false
+          }
+        }
+      },
+      None => {
+        match self.get_var(identifier) {
+          Some(_) => {
+            self.variables.insert(identifier.to_string(), val);
+            true
+          },
+          None => false
+        }
+      }
+    }
+  }
 
+  pub fn set_var(&mut self, identifier: &str, val: *const Value) {
+    if !self.find_and_set(identifier, val) {
+      self.variables.insert(identifier.to_string(), val);
+    }
   }
 }
 
@@ -191,7 +228,7 @@ impl VMExec {
   }
 
   fn scope_stack_peek(&self) -> Result<*mut Scope, VMExecError> {
-    println!("scopei: {}, {:?}", self.scope_stacki, self.scope_stack[self.scope_stacki]);
+    // println!("scopei: {}, {:?}", self.scope_stacki, self.scope_stack[self.scope_stacki]);
 
     match self.scope_stack[self.scope_stacki] {
       Some(val) => Ok(val),
@@ -204,11 +241,17 @@ impl VMExec {
     self.scope_stack[self.scope_stacki] = Some(val);
   }
 
-  // fn scope_stack_pop(&mut self) -> *mut Scope {
-  //   let to_return = self.scope_stack[self.scope_stacki];
-  //   self.scope_stacki -= 1;
-  //   to_return
-  // }
+  fn scope_stack_pop(&mut self) -> Result<*mut Scope, VMExecError> {
+    if self.scope_stacki <= 0 {
+      return Err(VMExecError::Temp);
+    }
+    let to_return = self.scope_stack[self.scope_stacki];
+    self.scope_stacki -= 1;
+    match to_return {
+      Some(val) => Ok(val),
+      None => Err(VMExecError::Temp)
+    }
+  }
 
   fn get_int(&mut self) -> Result<i32, VMExecError> {
     let self_point: *mut Self = self;
@@ -248,8 +291,8 @@ impl VMExec {
       };
       Ok(match *val {
         Value::Literal(ref val) => self.literal_to_string(val, quotes),
-        Value::Variable(ref identifier, pos) => match scope.variables.get(identifier) {
-          Some(val) => match **val {
+        Value::Variable(ref identifier, pos) => match scope.get_var(identifier) {
+          Some(val) => match *val {
             Value::Literal(ref val) => self.literal_to_string(val, quotes),
             _ => format!("err")
           },
@@ -283,8 +326,8 @@ impl VMExec {
     unsafe {
       if !is_assignment {
         if let &Value::Variable(ref identifier, pos) = &*val1f {
-          val1 = match scope.variables.get(identifier) {
-            Some(val) => *val,
+          val1 = match scope.get_var(identifier) {
+            Some(val) => val,
             None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
               Some(pos) => pos,
               None => 0
@@ -293,8 +336,8 @@ impl VMExec {
         }
       }
       if let &Value::Variable(ref identifier, pos) = &*val2f {
-        val2 = match scope.variables.get(identifier) {
-          Some(val) => *val,
+        val2 = match scope.get_var(identifier) {
+          Some(val) => val,
           None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
             Some(pos) => pos,
             None => 0
@@ -366,7 +409,7 @@ impl VMExec {
               let mut scope = unsafe {
                 &mut *self.scope_stack_peek()?
               };
-              scope.variables.insert(identifier.to_string(), val2);
+              scope.set_var(identifier, val2);
               Ok(val2) // might be memory error
             },
             _ => {
@@ -530,10 +573,13 @@ impl VMExec {
             self.stack_push(res);
           },
           SCOPE_NEW => {
-            // println!("scope_new");
+            let mut scope = Box::new(Scope::new(&mut self.root as *mut Root, Some(self.scope_stack_peek()?)));
+            let mut scope_point = &mut *scope as *mut Scope;
+            self.root.scopes.push(scope);
+            self.scope_stack_push(scope_point);
           },
           SCOPE_END => {
-            // println!("scope_end");
+            self.scope_stack_pop()?;
           },
           JUMP => {
             unsafe {
@@ -605,7 +651,7 @@ impl VMExec {
                 match &*val {
                   &Value::Variable(ref identifier, pos) => {
                     let mut scope = &mut *self.scope_stack_peek()?;
-                    match scope.variables.get(identifier) {
+                    match scope.get_var(identifier) {
                       None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
                         Some(pos) => pos,
                         None => 0
