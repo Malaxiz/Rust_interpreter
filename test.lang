@@ -9,6 +9,8 @@ print! "Hello: \"" + d + "\"";
 
 a = b = 5;
 
+asdf;
+
 if a <= 5 {
   asf = 5;
   print! "a is >= 5";

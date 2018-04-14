@@ -61,7 +61,7 @@ pub fn exec(program: Program, vm: &mut VM) -> Result<String, LangErr> {
       if vm.vm_exec.is_debug {
         handle_err::handle_err(&err, &vm.vm_exec.query);
       } else {
-        handle_err::print_err_text("err in script\n");
+        handle_err::print_err_text(&format!("{:?}\n", err));
       }
       Err(err)
     }

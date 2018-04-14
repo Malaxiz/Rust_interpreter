@@ -69,6 +69,14 @@ impl Scope {
       variables: HashMap::new()
     }
   }
+
+  pub fn get_var(identifier: &str) -> Option<*const Value> {
+    None
+  }
+  
+  pub fn set_var(identifier: &str, val: *const Value) {
+
+  }
 }
 
 pub struct VMExec {
@@ -240,12 +248,15 @@ impl VMExec {
       };
       Ok(match *val {
         Value::Literal(ref val) => self.literal_to_string(val, quotes),
-        Value::Variable(ref identifier, _) => match scope.variables.get(identifier) {
+        Value::Variable(ref identifier, pos) => match scope.variables.get(identifier) {
           Some(val) => match **val {
             Value::Literal(ref val) => self.literal_to_string(val, quotes),
             _ => format!("err")
           },
-          None => format!("nil")
+          None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+            Some(pos) => pos,
+            None => 0
+          }))
         },
         _ => format!("None")
       })
@@ -499,6 +510,7 @@ impl VMExec {
                 &Value::Literal(Literal::String(ref s)) => s,
                 _ => return Err(VMExecError::InvalidIdentifier(format!("{:?}", &*identifier)))
               };
+
               let val = Box::new(Value::Variable(identifier.to_string(), pos)); // temp
               let val_point = &*val as *const Value;
               self.root.pool.push(val);
@@ -586,7 +598,25 @@ impl VMExec {
             }
           },
           POP => {
-            self.stack_pop();
+            let val = self.stack_pop();
+
+            if self.is_debug {
+              unsafe {
+                match &*val {
+                  &Value::Variable(ref identifier, pos) => {
+                    let mut scope = &mut *self.scope_stack_peek()?;
+                    match scope.variables.get(identifier) {
+                      None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+                        Some(pos) => pos,
+                        None => 0
+                      })),
+                      _ => {}
+                    }
+                  },
+                  _ => {}
+                }
+              }
+            }
           }
           _ => {
             self.print_stack();
