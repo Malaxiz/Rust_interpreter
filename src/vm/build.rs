@@ -154,12 +154,42 @@ impl VMBuild {
           body_v.push(decl);
         }
 
+        {
+          let last_is_expr: bool = match *(*body)[body.len() - 1] {
+            Declaration::Statement(ref stmt, _) => match **stmt {
+              Statement::ExpressionStmt(_, is_expr, _) => is_expr,
+              _ => false // should not happen
+            },
+            _ => false // should not happen
+          };
+
+          if last_is_expr {
+            body_v.push(vec![u(PUSH_NIL)]);
+            body_len += 1;
+          }
+        }
+
         let mut else_v = Vec::new();
         let mut else_len = 0;
         for i in else_body {
           let decl = self.build_decl(i)?;
           else_len += decl.len();
           else_v.push(decl);
+        }
+
+        {
+          let last_is_expr: bool = match *(*else_body)[else_body.len() - 1] {
+            Declaration::Statement(ref stmt, _) => match **stmt {
+              Statement::ExpressionStmt(_, is_expr, _) => is_expr,
+              _ => false // should not happen
+            },
+            _ => false // should not happen
+          };
+
+          if last_is_expr {
+            else_v.push(vec![u(PUSH_NIL)]);
+            else_len += 1;
+          }
         }
 
         let mut debug_info = vec![];
@@ -210,13 +240,18 @@ impl VMBuild {
           debug_offset = 5;
         }
 
-        let last_is_stmt: bool = match *(*body)[body.len() - 1] {
+        let last_is_expr: bool = match *(*body)[body.len() - 1] {
           Declaration::Statement(ref stmt, _) => match **stmt {
-            Statement::ExpressionStmt(_, is_stmt, _) => is_stmt,
-            _ => false
+            Statement::ExpressionStmt(_, is_expr, _) => is_expr,
+            _ => false // should not happen
           },
-          _ => false
+          _ => false // should not happen
         };
+
+        if last_is_expr {
+          body_v.push(vec![u(PUSH_NIL)]);
+          body_len += 1;
+        }
 
         let mut expr = self.build_binary(&*expr, expr_pos)?;
         let expr_len = expr.len() as i32;
@@ -244,13 +279,13 @@ impl VMBuild {
         v.push(u(JUMPIFN));             // 6. JumpIfNot
         v.append(&mut debug_info.clone());
         v.push(u(I32));
-        v.append(&mut get_int_binary(1 + 6 + 5 + 6 + 11 + body_len + 6));
+        v.append(&mut get_int_binary(1 + 6 + 5 + 6 + 6 + debug_offset + body_len + 6));
 
         v.push(u(POP));                 // 7. Pop
 
         v.push(u(JUMP));                // 8. Jump
         v.push(u(I32));
-        v.append(&mut get_int_binary(5 + 6 + 11));
+        v.append(&mut get_int_binary(5 + 6 + 6 + debug_offset));
 
         v.push(u(PUSH_JUMP));            // 9. PushInt
         v.append(&mut get_int_binary(5 + 6 + 11 + 1 + 6 + 5 + 6 - 3 - 2 + debug_offset));

@@ -489,13 +489,13 @@ impl VMExec {
           continue;
         }
 
-        {
-          let cont = format!("{:#?}", code);
-          let mut repeat: i32 = 14 - cont.len() as i32;
-          repeat = if repeat < 0 {0} else {repeat};
-          println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
-          // self.print_stack();
-        }
+        // {
+        //   let cont = format!("{:#?}", code);
+        //   let mut repeat: i32 = 14 - cont.len() as i32;
+        //   repeat = if repeat < 0 {0} else {repeat};
+        //   println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
+        //   // self.print_stack();
+        // }
         
         match *code {
           END => {
@@ -598,8 +598,8 @@ impl VMExec {
           JUMP => {
             unsafe {
               let to = self.get_int()?;
-              println!("jumplength: {}", to);
-              println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
+              // println!("jumplength: {}", to);
+              // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
               self.op_i += to;
             }
           },
@@ -611,8 +611,8 @@ impl VMExec {
                   return Err(VMExecError::Temp)
                 }
               };
-              println!("jumplength: {}", to);
-              println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
+              // println!("jumplength: {}", to);
+              // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
               self.op_i += to;
             }
           },
@@ -637,7 +637,6 @@ impl VMExec {
                   false
                 },
                 _ => {
-                  print!("here");
                   return Err(VMExecError::Temp);
                 }
               };
