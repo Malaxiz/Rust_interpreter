@@ -300,6 +300,18 @@ impl VMExec {
       &Literal::Nil => format!("nil"),
       &Literal::Bool(b) => format!("{}", if b {"true"} else {"false"}),
       &Literal::String(ref val) => format!("{}{}{}", quotes, val, quotes),
+      &Literal::Function(pos, ref arguments) => {
+        let mut args = String::new();
+        let mut first = true;
+        for i in arguments {
+          if !first {
+            args += ", ";
+          }
+          args += i;
+          first = false;
+        }
+        format!("<function ({}) at {}>", args, pos)
+      },
       _ => format!("unknown literal (0)")
     }
   }
@@ -314,14 +326,14 @@ impl VMExec {
         Value::Variable(ref identifier, pos) => match scope.get_var(identifier) {
           Some(val) => match *val {
             Value::Literal(ref val) => self.literal_to_string(val, quotes),
-            _ => format!("unknown literal (1)")
+            _ => format!("unknown value (1)")
           },
           None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
             Some(pos) => pos,
             None => 0
           }))
         },
-        _ => format!("None")
+        _ => format!("unknown value (2)")
       })
     }
   }
