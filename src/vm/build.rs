@@ -14,6 +14,12 @@ pub enum VMBuildError {
   Temp
 }
 
+fn get_string_binary(string: &str) -> Vec<u8> {
+  let mut string: Vec<u8> = string.as_bytes().to_vec();
+  string.push(u(NULL));
+  string
+}
+
 fn get_num_binary(num: f64) -> Vec<u8> {
   let bv: [u8; 8] = unsafe {
     mem::transmute(num)
@@ -29,18 +35,25 @@ fn get_int_binary(pos: i32) -> Vec<u8> {
 }
 
 pub struct VMBuild {
-  is_debug: bool
+  is_debug: bool,
+  curr_pos: i32
 }
 
 impl VMBuild {
   pub fn new() -> Self {
     Self {
-      is_debug: false
+      is_debug: false,
+      curr_pos: 0
     }
   }
 
+  fn reset(&mut self) {
+    self.is_debug = false;
+    self.curr_pos = 0;
+  }
+
   fn build_binary(&mut self, expr: &Expression, pos: i32) -> Result<Vec<u8>, VMBuildError> {
-    match expr {
+    let v = match expr {
       &Expression::Binary(ref left, ref token, ref right) => {
         let left_pos = match **left {
           Expression::Primary(_, pos) => pos,
@@ -80,7 +93,7 @@ impl VMBuild {
           left.append(&mut get_int_binary(pos));
         }
 
-        Ok(left)
+        left
       },
       &Expression::Primary(ref literal, pos) => {
         match literal {
@@ -101,7 +114,7 @@ impl VMBuild {
               v.append(&mut get_int_binary(pos));
             }
 
-            Ok(v)
+            v
           },
           &Primary::Literal(ref literal) => {
             match literal {
@@ -113,21 +126,19 @@ impl VMBuild {
 
                 let mut v = vec![u(PUSH_NUM)];
                 v.append(&mut bv);
-                Ok(v)
+                v
               },
               &lexer::Literal::Bool(b) => {
                 let v = vec![u(PUSH_BOOL), if b {0x01} else {0x00}];
-                Ok(v)
+                v
               },
               &lexer::Literal::String(ref s) => {
                 let mut v = vec![u(PUSH_STRING)];
-                let mut s: Vec<u8> = s.clone().into_bytes();
-                v.append(&mut s);
-                v.push(u(NULL));
-                Ok(v)
+                v.append(&mut get_string_binary(s));
+                v
               },
               &lexer::Literal::Nil => {
-                Ok(vec![u(PUSH_NIL)])
+                vec![u(PUSH_NIL)]
               },
               _ => return Err(VMBuildError::UnsupportedType(literal.clone(), pos))
             }
@@ -148,7 +159,7 @@ impl VMBuild {
           v.append(&mut get_int_binary(pos));
         }
 
-        Ok(v)
+        v
       },
       &Expression::IfExpr(ref expr, ref body, ref else_body, expr_pos, pos) => {
         let mut body_v = Vec::new();
@@ -226,7 +237,7 @@ impl VMBuild {
 
         v.push(u(SCOPE_END));
 
-        Ok(v)
+        v
       },
       &Expression::WhileExpr(ref expr, ref body, expr_pos, pos) => {
         let mut body_v = Vec::new();
@@ -314,12 +325,46 @@ impl VMBuild {
 
         v.push(u(SCOPE_END));
 
-        Ok(v)
+        v
         // println!("{:?}", get_program(v));
         // Ok(vec![u(PUSH_NIL)])
       },
+      &Expression::FunctionExpr(ref parameters, ref body, pos) => {
+        let mut body_v = Vec::new();
+        for i in body {
+          body_v.append(&mut self.build_decl(i)?);
+        }
+
+        let mut v = vec![u(PUSH_FUNC)];
+        if self.is_debug {
+          v.push(u(I32));
+          v.append(&mut get_int_binary(pos));
+        }
+
+        v.push(u(I32));
+        v.append(&mut get_int_binary(self.curr_pos));
+
+        v.push(u(I32));
+        v.append(&mut get_int_binary(parameters.len() as i32));
+
+        for i in parameters {
+          v.push(u(STRING));
+          v.append(&mut get_string_binary(i));
+        }
+
+        v.push(u(JUMP));
+        v.push(u(I32));
+        v.append(&mut get_int_binary(body_v.len() as i32 + 1));
+
+        v.append(&mut body_v);
+
+        v.push(u(JUMPSTACK));
+        v
+      },
       _ => return Err(VMBuildError::InvalidExpression(format!("{:?}", expr), pos))
-    }
+    };
+
+    Ok(v)
   }
 
   fn build_expr(&mut self, expr: &Expression, pos: i32) -> Result<Vec<u8>, VMBuildError> {
@@ -346,6 +391,8 @@ impl VMBuild {
   }
 
   pub fn build(&mut self, decls: Decls, query: String, options: BuildOptions) -> Result<Instructions, VMBuildError> {
+    self.reset();
+
     let mut program: Vec<u8> = vec![u(VERSION), 0x01];
 
     if options.contains(BuildOptions::DEBUG) {
@@ -363,6 +410,7 @@ impl VMBuild {
     program.push(u(META_END));
 
     for i in decls {
+      self.curr_pos = program.len() as i32;
       let mut built = self.build_decl(&*i)?;
       program.append(&mut built);
     }

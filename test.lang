@@ -32,6 +32,10 @@ while (i = i + 1) < 1e5 {
 };
 print! "Finished";
 
+myFunc = fn(a, b) {
+  print! "hello";
+}
+
 //1 // success
 
 // debug = 1.050s

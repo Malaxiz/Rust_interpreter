@@ -16,7 +16,7 @@ pub enum VMExecError {
   InvalidIdentifier(String),
   InvalidCast(Literal, String, i32),
 
-  Temp
+  Temp(i32)
 }
 
 #[derive(Clone, Debug)]
@@ -25,6 +25,10 @@ pub enum Literal {
   Int(i32),
   Bool(bool),
   String(String),
+
+  // absolute_pos, parameters
+  Function(i32, Vec<String>),
+
   Nil
 }
 
@@ -232,7 +236,7 @@ impl VMExec {
 
     match self.scope_stack[self.scope_stacki] {
       Some(val) => Ok(val),
-      None => Err(VMExecError::Temp)
+      None => Err(VMExecError::Temp(0))
     }
   }
 
@@ -243,29 +247,42 @@ impl VMExec {
 
   fn scope_stack_pop(&mut self) -> Result<*mut Scope, VMExecError> {
     if self.scope_stacki <= 0 {
-      return Err(VMExecError::Temp);
+      return Err(VMExecError::Temp(1));
     }
     let to_return = self.scope_stack[self.scope_stacki];
     self.scope_stacki -= 1;
     match to_return {
       Some(val) => Ok(val),
-      None => Err(VMExecError::Temp)
+      None => Err(VMExecError::Temp(2))
+    }
+  }
+
+  fn get_string(&mut self) -> Result<String, VMExecError> {
+    let self_point: *mut Self = self;
+    let string = self.consume_op();
+    match string.content {
+      OperationLiteral::String(ref s, len) => {
+        unsafe {
+          (*self_point).op_i += len as i32; // offset of string
+        }
+        Ok(s.to_owned())
+      },
+      _ => unsafe { return Err(VMExecError::InvalidOperationContent((*self_point).op_i as usize)) }
     }
   }
 
   fn get_int(&mut self) -> Result<i32, VMExecError> {
     let self_point: *mut Self = self;
     let int = self.consume_op();
-    unsafe {
-      (*self_point).op_i += 4;
+    match int.content {
+      OperationLiteral::Int(pos) => {
+        unsafe {
+          (*self_point).op_i += 4;
+        }
+        Ok(pos)
+      },
+      _ => unsafe { return Err(VMExecError::InvalidOperationContent((*self_point).op_i as usize)) }
     }
-    Ok(match int.content {
-      OperationLiteral::Int(pos) => pos,
-      _ => {
-        println!("here2: {:?}", int.content);
-        return Err(VMExecError::Temp)
-      }
-    })
   }
 
   fn get_debug_pos(&mut self) -> Result<Option<i32>, VMExecError> {
@@ -283,7 +300,7 @@ impl VMExec {
       &Literal::Nil => format!("nil"),
       &Literal::Bool(b) => format!("{}", if b {"true"} else {"false"}),
       &Literal::String(ref val) => format!("{}{}{}", quotes, val, quotes),
-      _ => format!("err")
+      _ => format!("unknown literal (0)")
     }
   }
 
@@ -297,7 +314,7 @@ impl VMExec {
         Value::Variable(ref identifier, pos) => match scope.get_var(identifier) {
           Some(val) => match *val {
             Value::Literal(ref val) => self.literal_to_string(val, quotes),
-            _ => format!("err")
+            _ => format!("unknown literal (1)")
           },
           None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
             Some(pos) => pos,
@@ -420,7 +437,7 @@ impl VMExec {
             }
           }
         },
-        _ => return Err(VMExecError::Temp)
+        _ => return Err(VMExecError::Temp(3))
       }
     }
   }
@@ -576,6 +593,21 @@ impl VMExec {
               self.stack_push(val_point);
             }
           },
+          PUSH_FUNC => {
+            let pos = self.get_debug_pos()?;
+            let abs_pos = self.get_int()?;
+            let par_len = self.get_int()?;
+
+            let mut parameters = Vec::with_capacity(par_len as usize);
+            for i in 0..par_len {
+              parameters.push(self.get_string()?);
+            }
+
+            let val = Box::new(Value::Literal(Literal::Function(abs_pos, parameters)));
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
+          },
           PUSH_NIL => {
             self.stack_push(NIL);
           },
@@ -616,7 +648,7 @@ impl VMExec {
               let to: i32 = match &*self.jump_stack_pop() {
                 &Value::Literal(Literal::Int(to)) => to as i32,
                 _ => {
-                  return Err(VMExecError::Temp)
+                  return Err(VMExecError::Temp(4))
                 }
               };
               // println!("jumplength: {}", to);
@@ -645,7 +677,7 @@ impl VMExec {
                   false
                 },
                 _ => {
-                  return Err(VMExecError::Temp);
+                  return Err(VMExecError::Temp(5));
                 }
               };
 

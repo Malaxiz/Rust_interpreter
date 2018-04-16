@@ -48,7 +48,8 @@ enum_from_primitive! {
     DEBUG_CODE,
     DEBUG_CODE_END,
 
-    I32, // [content: 4b]
+    I32, // [content: 4b],
+    STRING, // [content: str, NULL]
 
     PUSH_NUM, // [content: 8b]
     PUSH_INT, // [content: 4b]
@@ -57,6 +58,8 @@ enum_from_primitive! {
     PUSH_STRING, // [content: str, NULL]
     PUSH_VAR, // [content: str, NULL, I32, debug: 4b], // looks up variable
     PUSH_STACK_VAR, // [I32, debug: 4b] //  pops a string from the stack and looks up variable
+    PUSH_FUNC, // [I32, debug: 4b, I32, absolute_pos: 4b, I32, parameter_len: 4b, STRING, par1: str, STRING, par2: str, ..., body]
+    CALL_FUNC, // [I32, debug: 4b, I32, jump_back: 4b, I32, argument_len, STRING, arg1: str, STRING, arg2: str]
     PUSH_NIL, // []
 
     POP, // pops top value of stack
@@ -136,7 +139,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
               OperationLiteral::None
             }
           },
-          PUSH_STRING | PUSH_VAR => {
+          STRING | PUSH_STRING | PUSH_VAR => {
             let mut content_vec: Vec<u8> = Vec::new();
             let mut j = 0;
             let content = OperationLiteral::None;
