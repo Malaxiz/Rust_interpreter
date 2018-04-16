@@ -160,7 +160,7 @@ impl VMBuild {
         }
 
         {
-          let last_is_expr: bool = match *(*body)[body.len() - 1] {
+          let last_is_expr: bool = body_len <= 0 || match *(*body)[body.len() - 1] {
             Declaration::Statement(ref stmt, _) => match **stmt {
               Statement::ExpressionStmt(_, is_expr, _) => is_expr,
               _ => false // should not happen
@@ -183,7 +183,7 @@ impl VMBuild {
         }
 
         {
-          let last_is_expr: bool = match *(*else_body)[else_body.len() - 1] {
+          let last_is_expr: bool = body_len <= 0 || match *(*else_body)[else_body.len() - 1] {
             Declaration::Statement(ref stmt, _) => match **stmt {
               Statement::ExpressionStmt(_, is_expr, _) => is_expr,
               _ => false // should not happen
@@ -245,7 +245,7 @@ impl VMBuild {
           debug_offset = 5;
         }
 
-        let last_is_expr: bool = match *(*body)[body.len() - 1] {
+        let last_is_expr: bool = body_len <= 0 || match *(*body)[body.len() - 1] {
           Declaration::Statement(ref stmt, _) => match **stmt {
             Statement::ExpressionStmt(_, is_expr, _) => is_expr,
             _ => false // should not happen

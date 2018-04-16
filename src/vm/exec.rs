@@ -490,10 +490,10 @@ impl VMExec {
         }
 
         {
-          let cont = format!("{:#?}", code);
-          let mut repeat: i32 = 14 - cont.len() as i32;
-          repeat = if repeat < 0 {0} else {repeat};
-          println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
+          // let cont = format!("{:#?}", code);
+          // let mut repeat: i32 = 14 - cont.len() as i32;
+          // repeat = if repeat < 0 {0} else {repeat};
+          // println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
           // self.print_stack();
         }
         

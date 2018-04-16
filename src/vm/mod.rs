@@ -62,6 +62,7 @@ enum_from_primitive! {
     POP, // pops top value of stack
     PRINT, // [I32, debug: 4b], pops top value of stack and prints it
 
+    // [content: 0b]
     SCOPE_NEW,
     SCOPE_END,
     SCOPE_FORWARD, // moves scope_stacki += 1
