@@ -24,6 +24,13 @@ c = while i < 10 {
   "a" + i
 };
 
-c
+c;
+
+print! "Starting";
+i = 0;
+while i < 10 {
+  i = i + 1;
+};
+print! "Finished";
 
 //1 // success

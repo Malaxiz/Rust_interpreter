@@ -489,13 +489,13 @@ impl VMExec {
           continue;
         }
 
-        // {
-        //   let cont = format!("{:#?}", code);
-        //   let mut repeat: i32 = 14 - cont.len() as i32;
-        //   repeat = if repeat < 0 {0} else {repeat};
-        //   println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
-        //   // self.print_stack();
-        // }
+        {
+          let cont = format!("{:#?}", code);
+          let mut repeat: i32 = 14 - cont.len() as i32;
+          repeat = if repeat < 0 {0} else {repeat};
+          println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
+          // self.print_stack();
+        }
         
         match *code {
           END => {
@@ -554,13 +554,21 @@ impl VMExec {
           },
           PUSH_VAR => {
             unsafe {
-              let mut pos = self.get_debug_pos()?;
+              // let identifier = self.stack_pop();
+              // let identifier = match &*identifier {
+              //   &Value::Literal(Literal::String(ref s)) => s,
+              //   _ => return Err(VMExecError::InvalidIdentifier(format!("{:?}", &*identifier)))
+              // };
 
-              let identifier = self.stack_pop();
-              let identifier = match &*identifier {
-                &Value::Literal(Literal::String(ref s)) => s,
-                _ => return Err(VMExecError::InvalidIdentifier(format!("{:?}", &*identifier)))
+              let identifier = match content {
+                &OperationLiteral::String(ref s, len) => {
+                  self.op_i += len as i32; // offset of string
+                  s.to_owned()
+                },
+                _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
               };
+
+              let mut pos = self.get_debug_pos()?;
 
               let val = Box::new(Value::Variable(identifier.to_string(), pos)); // temp
               let val_point = &*val as *const Value;

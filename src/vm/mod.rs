@@ -40,45 +40,46 @@ enum_from_primitive! {
     NULL = 0x00,
     END = 0x01,
 
-    VERSION,
-    DEBUG,
+    VERSION, // [version: 1b]
+    DEBUG, // []
 
     META_END,
 
     DEBUG_CODE,
     DEBUG_CODE_END,
 
-    // DEBUG_POS, //i32, 4b
-    I32, // i32, 4b
+    I32, // [content: 4b]
 
-    PUSH_NUM,
-    PUSH_INT,
-    PUSH_JUMP, // position for a JUMPSTACK to use, gets pushed to a separate stack
-    PUSH_BOOL,
-    PUSH_STRING,
-    PUSH_VAR, // pops a string from the stack
-    PUSH_NIL,
+    PUSH_NUM, // [content: 8b]
+    PUSH_INT, // [content: 4b]
+    PUSH_JUMP, // [content: 4b], position for a JUMPSTACK to use, gets pushed to a separate stack
+    PUSH_BOOL,  // [content: 1b]
+    PUSH_STRING, // [content: str, NULL]
+    PUSH_VAR, // [content: str, NULL, I32, debug: 4b], // looks up variable
+    PUSH_STACK_VAR, // [I32, debug: 4b] //  pops a string from the stack and looks up variable
+    PUSH_NIL, // []
 
-    POP,
-    PRINT,
+    POP, // pops top value of stack
+    PRINT, // [I32, debug: 4b], pops top value of stack and prints it
 
     SCOPE_NEW,
     SCOPE_END,
-    SCOPE_FORWARD, // moves scope_stacki
-    SCOPE_BACK,
+    SCOPE_FORWARD, // moves scope_stacki += 1
+    SCOPE_BACK, // moves scope_stacki -= 1
     SCOPE_PUSH, // for instances, not implemented
 
-    JUMP,
-    JUMPIFN,
-    JUMPSTACK,
+    JUMP, // [I32, pos: 4b]
+    JUMPIFN, // [I32, debug: 4b, I32, pos: 4b]
+    JUMPSTACK, // []
 
-    // operation on top two stack values.
+    // operation on top two stack values. [I32, debug: 4b]
     ASSIGN,
     ADD,
     SUB,
     MULTIPLY,
     DIVIDE,
 
+    // [I32, debug: 4b]
     LT,
     GT,
     LTOREQ,
@@ -134,7 +135,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
               OperationLiteral::None
             }
           },
-          PUSH_STRING => {
+          PUSH_STRING | PUSH_VAR => {
             let mut content_vec: Vec<u8> = Vec::new();
             let mut j = 0;
             let content = OperationLiteral::None;

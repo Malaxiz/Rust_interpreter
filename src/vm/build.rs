@@ -85,12 +85,17 @@ impl VMBuild {
       &Expression::Primary(ref literal, pos) => {
         match literal {
           &Primary::Identifier(ref identifier) => {
-            let mut v = vec![u(PUSH_STRING)];
+            // let mut v = vec![u(PUSH_STRING)];
+            // let mut s: Vec<u8> = identifier.clone().into_bytes();
+            // v.append(&mut s);
+            // v.push(u(NULL));
+            let mut v = vec![];
+            v.push(u(PUSH_VAR));
+
             let mut s: Vec<u8> = identifier.clone().into_bytes();
             v.append(&mut s);
             v.push(u(NULL));
-            v.push(u(PUSH_VAR));
-            
+
             if self.is_debug {
               v.push(u(I32));
               v.append(&mut get_int_binary(pos));
