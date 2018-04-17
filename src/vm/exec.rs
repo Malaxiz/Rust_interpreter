@@ -9,6 +9,7 @@ const STACK_SIZE: usize = 512;
 pub enum VMExecError {
   // error, pos
   UnsupportedOperation(Literal, Literal, OPCode, i32),
+  UnsupportedValueOperation(Value, Value, OPCode, i32),
   InvalidOPCode(String),
   UnsupportedOPCode(String),
   VariableNotDefined(String, i32),
@@ -503,7 +504,7 @@ impl VMExec {
             }
           }
         },
-        _ => return Err(VMExecError::Temp(3))
+        _ => return Err(VMExecError::UnsupportedValueOperation((&*val1).clone(), (&*val2).clone(), operation.clone(), get_pos()))
       }
     }
   }
