@@ -29,7 +29,8 @@ fn shell(mut vm: &mut VM) {
     };
 
     let program = vm::get_program(instructions);
-    match lang::exec(program, &mut vm) {
+
+    match lang::exec(program, &mut vm, true) {
       Ok(res) => println!("{}", res),
       Err(_) => continue
     }
@@ -125,7 +126,7 @@ fn main() {
           vm::get_program(bytes)
         };
 
-        match lang::exec(program, &mut vm) {
+        match lang::exec(program, &mut vm, false) {
           Ok(res) => println!("{}", res),
           Err(_) => {}
         }

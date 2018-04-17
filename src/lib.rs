@@ -53,8 +53,8 @@ pub fn build(query: &str, vm: &mut VM, options: BuildOptions) -> Result<Instruct
   }
 }
 
-pub fn exec(program: Program, vm: &mut VM) -> Result<String, LangErr> {
-  match vm.exec(program) {
+pub fn exec(program: Program, vm: &mut VM, append: bool) -> Result<String, LangErr> {
+  match vm.exec(program, append) {
     Ok(val) => Ok(val),
     Err(err) => {
       let err = LangErr::VMExecErr(err);

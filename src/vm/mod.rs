@@ -9,6 +9,7 @@ pub use lexer::Token;
 
 pub mod build;
 pub mod exec;
+pub mod cast;
 
 use vm::build::VMBuild;
 use vm::exec::{VMExec, Value};
@@ -58,8 +59,8 @@ enum_from_primitive! {
     PUSH_STRING, // [content: str, NULL]
     PUSH_VAR, // [content: str, NULL, I32, debug: 4b], // looks up variable
     PUSH_STACK_VAR, // [I32, debug: 4b] //  pops a string from the stack and looks up variable
-    PUSH_FUNC, // [I32, debug: 4b, I32, absolute_pos: 4b, I32, parameter_len: 4b, STRING, par1: str, STRING, par2: str, ..., body]
-    CALL_FUNC, // [I32, debug: 4b, I32, jump_back: 4b, I32, argument_len, STRING, arg1: str, STRING, arg2: str]
+    PUSH_FUNC, // [I32, debug: 4b, I32, pos: 4b, I32, parameter_len: 4b, STRING, par1: str, STRING, par2: str, ..., body_len: 4b, body]
+    CALL_FUNC, // [I32, debug: 4b, I32, argument_len]
     PUSH_NIL, // []
 
     POP, // pops top value of stack
@@ -74,7 +75,8 @@ enum_from_primitive! {
 
     JUMP, // [I32, pos: 4b]
     JUMPIFN, // [I32, debug: 4b, I32, pos: 4b]
-    JUMPSTACK, // []
+    JUMPSTACK, // [], jumps to a relative position
+    JUMPSTACKABS, // [], jumps to an absolute position
 
     // operation on top two stack values. [I32, debug: 4b]
     ASSIGN,
@@ -220,7 +222,7 @@ impl VM {
     self.vm_build.build(decls, code, options)
   }
 
-  pub fn exec(&mut self, program: Program) -> Result<String, VMExecError> {
-    self.vm_exec.exec(program)
+  pub fn exec(&mut self, mut program: Program, append: bool) -> Result<String, VMExecError> {
+    self.vm_exec.exec(program, append)
   }
 }

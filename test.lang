@@ -33,8 +33,12 @@ while (i = i + 1) < 1e5 {
 print! "Finished";
 
 myFunc = fn(a, b) {
-  print! "hello";
-}
+  print! "hello"
+};
+
+print! myFunc;
+
+myFunc()
 
 //1 // success
 

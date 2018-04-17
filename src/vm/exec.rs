@@ -26,7 +26,7 @@ pub enum Literal {
   Bool(bool),
   String(String),
 
-  // absolute_pos, parameters
+  // pos, parameters
   Function(i32, Vec<String>),
 
   Nil
@@ -41,7 +41,7 @@ pub enum Value {
 
 // fn get_binary_pos(Vec<u8>)
 
-struct Root {
+pub struct Root {
   pool: Vec<Box<Value>>,
   scopes: Vec<Box<Scope>>
 }
@@ -59,7 +59,7 @@ impl Root {
   }
 }
 
-struct Scope {
+pub struct Scope {
   root: *mut Root,
   parent: Option<*mut Scope>,
   variables: HashMap<String, *const Value>,
@@ -131,7 +131,7 @@ pub struct VMExec {
 
   stack: [*const Value; 512],
   stacki: usize,
-  jump_stack: [*const Value; 512],
+  jump_stack: [i32; 512],
   jump_stacki: usize,
   scope_stack: [Option<*mut Scope>; 512],
   scope_stacki: usize,
@@ -155,7 +155,7 @@ impl VMExec {
 
       stack: [&Value::None; 512],
       stacki: 0,
-      jump_stack: [&Value::None; 512],
+      jump_stack: [0; 512],
       jump_stacki: 0,
       scope_stack: [None; 512],
       scope_stacki: 0,
@@ -174,12 +174,14 @@ impl VMExec {
     this
   }
 
-  fn reset(&mut self) {
-    self.program = Vec::new();
-    self.op_i = 0;
+  fn reset(&mut self, append: bool) {
+    if !append {
+      self.program = Vec::new();
+      self.op_i = 0;
+      self.query = String::from("");
+    }
     self.stack = [&Value::None; 512];
     self.stacki = 0;
-    self.query = String::from("");
   }
 
   fn consume(&mut self) -> u8 {
@@ -218,20 +220,20 @@ impl VMExec {
     }
   }
 
-  fn jump_stack_push(&mut self, val: *const Value) {
+  fn jump_stack_push(&mut self, val: i32) {
     self.jump_stack[self.jump_stacki] = val;
     self.jump_stacki += 1;
   }
 
-  fn jump_stack_pop(&mut self) -> *const Value {
+  fn jump_stack_pop(&mut self) -> Result<i32, VMExecError> {
     if self.jump_stacki <= 0 {
-      return NIL;
+      return Err(VMExecError::Temp(69));
     }
     self.jump_stacki -= 1;
-    self.jump_stack[self.jump_stacki]
+    Ok(self.jump_stack[self.jump_stacki])
   }
 
-  fn scope_stack_peek(&self) -> Result<*mut Scope, VMExecError> {
+  pub fn scope_stack_peek(&self) -> Result<*mut Scope, VMExecError> {
     // println!("scopei: {}, {:?}", self.scope_stacki, self.scope_stack[self.scope_stacki]);
 
     match self.scope_stack[self.scope_stacki] {
@@ -466,10 +468,14 @@ impl VMExec {
     print!("---------\n");
   }
 
-  pub fn exec(&mut self, program: Program) -> Result<String, VMExecError> {
-    self.reset();
-    // println!("root: {:?}", self.root.pool);
-    self.program = program;
+  pub fn exec(&mut self, mut program: Program, append: bool) -> Result<String, VMExecError> {
+    self.reset(append);
+
+    if append {
+      self.program.append(&mut program);
+    } else {
+      self.program = program;
+    }
 
     let mut meta_end = false;
     let mut self_point: *mut Self = self;
@@ -509,7 +515,11 @@ impl VMExec {
                 Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
               };
 
-              self.query = query.to_string();
+              if append {
+                self.query += query;
+              } else {
+                self.query = query.to_string();
+              }
             },
             _ => {}
           }
@@ -553,14 +563,19 @@ impl VMExec {
             self.stack_push(val_point);
           },
           PUSH_JUMP => {
-            let val = Box::new(Value::Literal(Literal::Int(match content {
+            // let val = Box::new(Value::Literal(Literal::Int(match content {
+            //   &OperationLiteral::Int(int) => int,
+            //   _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
+            // })));
+            let val = match content {
               &OperationLiteral::Int(int) => int,
               _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
-            })));
+            };
             self.op_i += 4; // offset of i32
-            let val_point = &*val as *const Value;
-            self.root.pool.push(val);
-            self.jump_stack_push(val_point);
+            // let val_point = &*val as *const Value;
+            // self.root.pool.push(val);
+            // self.jump_stack_push(val_point);
+            self.jump_stack_push(val);
           },
           PUSH_BOOL => {
             let b = self.consume();
@@ -607,7 +622,7 @@ impl VMExec {
           },
           PUSH_FUNC => {
             let pos = self.get_debug_pos()?;
-            let abs_pos = self.get_int()?;
+            let body_offset = self.get_int()?;
             let par_len = self.get_int()?;
 
             let mut parameters = Vec::with_capacity(par_len as usize);
@@ -615,10 +630,33 @@ impl VMExec {
               parameters.push(self.get_string()?);
             }
 
-            let val = Box::new(Value::Literal(Literal::Function(abs_pos, parameters)));
+            let val = Box::new(Value::Literal(Literal::Function(self.op_i + body_offset, parameters)));
             let val_point = &*val as *const Value;
             self.root.pool.push(val);
             self.stack_push(val_point);
+          },
+          CALL_FUNC => {
+            let self_point = self as *mut Self;
+
+            let pos = self.get_debug_pos()?;
+            let args_len = self.get_int()?;
+
+            let func = self.stack_pop();
+            let func = unsafe {
+              (*self_point).cast_func(func, pos)?
+            };
+
+            let mut args = Vec::with_capacity(args_len as usize);
+            for i in 0..args_len {
+              args.push(self.stack_pop());
+            }
+
+            let jump_stack = self.op_i;
+            self.jump_stack_push(jump_stack);
+
+            self.op_i = func.0;
+
+            // println!("{:?}", func);
           },
           PUSH_NIL => {
             self.stack_push(NIL);
@@ -656,42 +694,25 @@ impl VMExec {
             }
           },
           JUMPSTACK => {
-            unsafe {
-              let to: i32 = match &*self.jump_stack_pop() {
-                &Value::Literal(Literal::Int(to)) => to as i32,
-                _ => {
-                  return Err(VMExecError::Temp(4))
-                }
-              };
-              // println!("jumplength: {}", to);
-              // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
-              self.op_i += to;
-            }
+            let to = self.jump_stack_pop()?;
+            // println!("jumplength: {}", to);
+            // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
+            self.op_i += to;
+          },
+          JUMPSTACKABS => {
+            let to = self.jump_stack_pop()?;
+            // println!("jumplength: {}", to);
+            // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
+            self.op_i = to;
           },
           JUMPIFN => {
             unsafe {
-              let mut expr_pos = match self.get_debug_pos()? {
-                Some(pos) => pos,
-                None => 0
-              };
+              let mut expr_pos = self.get_debug_pos()?;
 
               // let to = self.stack_pop();
               let to = self.get_int()?;
               let expr = self.stack_pop();
-              let expr: bool = match &*expr {
-                &Value::Literal(ref literal) => {
-                  match *literal {
-                    Literal::Bool(b) => b,
-                    _ => return Err(VMExecError::InvalidCast(literal.clone(), "String".to_string(), expr_pos))
-                  }
-                },
-                &Value::Variable(ref identifier, _) => {
-                  false
-                },
-                _ => {
-                  return Err(VMExecError::Temp(5));
-                }
-              };
+              let expr = self.cast_bool(expr, expr_pos)?;
 
               if !expr {
                 // println!("jumping to: {:#?}", vec!(&self.program[self.op_i + to - 2], &self.program[self.op_i + to - 1], &self.program[self.op_i + to]));

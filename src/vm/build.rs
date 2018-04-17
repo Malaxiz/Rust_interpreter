@@ -194,7 +194,7 @@ impl VMBuild {
         }
 
         {
-          let last_is_expr: bool = body_len <= 0 || match *(*else_body)[else_body.len() - 1] {
+          let last_is_expr: bool = else_len <= 0 || match *(*else_body)[else_body.len() - 1] {
             Declaration::Statement(ref stmt, _) => match **stmt {
               Statement::ExpressionStmt(_, is_expr, _) => is_expr,
               _ => false // should not happen
@@ -335,30 +335,68 @@ impl VMBuild {
           body_v.append(&mut self.build_decl(i)?);
         }
 
+        let mut parameter_v = Vec::new();
+        for i in parameters {
+          parameter_v.push(u(STRING));
+          parameter_v.append(&mut get_string_binary(i));
+        }
+
+        let last_is_stmt = body.len() <= 0 || match &*body[body.len() - 1] {
+          &Declaration::Statement(ref stmt, _) => match &**stmt {
+            &Statement::ExpressionStmt(ref _box, is_stmt, _) => is_stmt,
+            _ => false
+          },
+          _ => false
+        };
+
         let mut v = vec![u(PUSH_FUNC)];
+
+        let mut debug_offset = 0;
         if self.is_debug {
           v.push(u(I32));
           v.append(&mut get_int_binary(pos));
+          debug_offset = 5;
         }
 
         v.push(u(I32));
-        v.append(&mut get_int_binary(self.curr_pos));
+        v.append(&mut get_int_binary(1 + 1 + 4));
 
         v.push(u(I32));
         v.append(&mut get_int_binary(parameters.len() as i32));
 
-        for i in parameters {
-          v.push(u(STRING));
-          v.append(&mut get_string_binary(i));
-        }
+        v.append(&mut parameter_v);
 
         v.push(u(JUMP));
         v.push(u(I32));
-        v.append(&mut get_int_binary(body_v.len() as i32 + 1));
+        v.append(&mut get_int_binary(body_v.len() as i32 + 1 + if last_is_stmt {1} else {0}));
 
         v.append(&mut body_v);
+        if last_is_stmt {
+          v.push(u(PUSH_NIL))
+        }
 
-        v.push(u(JUMPSTACK));
+        v.push(u(JUMPSTACKABS));
+        v
+      },
+      &Expression::FunctionCallExpr(ref expr, ref args, pos) => {
+        let mut debug_info = Vec::new();
+        if self.is_debug {
+          debug_info.push(u(I32));
+          debug_info.append(&mut get_int_binary(pos));
+        }
+
+        let mut v = self.build_expr(expr, pos)?;
+
+        for i in args {
+          v.append(&mut self.build_expr(i, pos)?);
+        }
+
+        v.push(u(CALL_FUNC));
+        v.append(&mut debug_info);
+
+        v.push(u(I32));
+        v.append(&mut get_int_binary(args.len() as i32));
+
         v
       },
       _ => return Err(VMBuildError::InvalidExpression(format!("{:?}", expr), pos))
