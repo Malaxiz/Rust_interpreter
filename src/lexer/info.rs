@@ -52,6 +52,7 @@ pub enum Token {
   Tab,
 
   // keywords
+  Let,
   If,
   Else,
   While,
@@ -102,6 +103,7 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "\n" => LineBreak,
     "\t" => Tab,
 
+    "let" => Let,
     "if" => If,
     "while" => While,
     "else" => Else,

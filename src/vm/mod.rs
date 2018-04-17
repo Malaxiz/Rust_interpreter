@@ -19,7 +19,6 @@ use self::OPCode::*;
 pub use vm::build::{VMBuildError, VMBuildError::*};
 pub use vm::exec::{VMExecError, VMExecError::*};
 
-use std::slice;
 use std::mem;
 
 pub type Program = Vec<Operation>;
@@ -80,6 +79,7 @@ enum_from_primitive! {
 
     // operation on top two stack values. [I32, debug: 4b]
     ASSIGN,
+    LET,
     ADD,
     SUB,
     MULTIPLY,
@@ -144,7 +144,7 @@ pub fn get_program(bytes: Vec<u8>) -> Program {
           STRING | PUSH_STRING | PUSH_VAR => {
             let mut content_vec: Vec<u8> = Vec::new();
             let mut j = 0;
-            let content = OperationLiteral::None;
+            //let content = OperationLiteral::None;
             let mut is_invalid = false;
             loop {
               if i + j + 1 > blen { // invalid

@@ -138,7 +138,7 @@ impl<'a> Grammar {
   // insert block expr here
 
   fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
-    let expr = self.assign()?;
+    let expr = self.let_assign()?;
 
     if let Some((_, call_pos)) = self.do_match(&[Token::ParOpen]) {
       let mut args: Vec<Box<Expression>> = Vec::new();
@@ -164,11 +164,24 @@ impl<'a> Grammar {
     Ok(expr)
   }
 
+  fn let_assign(&mut self) -> Result<Expression, ParserErr> {
+    while let Some(_) = self.do_match(&[Let]) {
+      let mut expr = self.func_expr()?;
+      while let Some((_, pos)) = self.do_match(&[Equals]) {
+        let right = self.expression()?;
+        expr = Expression::Binary(Box::new(expr), (Let, pos), Box::new(right));
+      }
+      return Ok(expr);
+    }
+
+    Ok(self.assign()?)
+  }
+
   fn assign(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.func_expr()?;
 
     while let Some((operator, pos)) = self.do_match(&[Equals]) {
-      let right = self.assign()?;
+      let right = self.expression()?;
       expr = Expression::Binary(Box::new(expr), (operator, pos), Box::new(right));
     }
 

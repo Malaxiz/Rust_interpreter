@@ -1,15 +1,15 @@
-a = 5+5 +
+let a = 5+5 +
 2+2*5-1e2*1.05 +
 ("hello there" * 5 + 2) + 2;
 
-c = a + 5;
-d = print! c;
+let c = a + 5;
+let d = print! c;
 
 print! "Hello: \"" + d + "\"";
 
-a = b = 4.9999;
+let a = let b = 4.9999;
 
-asdf = if a <= 5 {
+let asdf = if a <= 5 {
   print! "a is >= 5"
 } else {
   print! "uwot"
@@ -17,7 +17,7 @@ asdf = if a <= 5 {
 
 print! asdf;
 
-i = -1;
+let i = -1;
 c = while (i = i + 1) < 10 {
   print! "i is: " + i;
   "a" + i
@@ -32,13 +32,24 @@ while (i = i + 1) < 1e5 {
 };
 print! "Finished";
 
-myFunc = fn(b) {
-  print! "hello" - 5
+let myFunc = fn(b) {
+  print! "hello" + b;
 };
 
 print! myFunc;
 
-myFunc(5)
+myFunc(5);
+
+let raise = fn(a, b) {
+  a = 5;
+  b = 5;
+};
+
+a = 1;
+raise(2, 2);
+print! "a = " + a;
+
+
 
 //1 // success
 

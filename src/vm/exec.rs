@@ -82,6 +82,13 @@ impl Scope {
     }
   }
 
+  fn get_var_directly(&self, identifier: &str) -> Option<*const Value> {
+    match self.variables.get(identifier) {
+      Some(val) => Some(*val),
+      None => None
+    }
+  }
+
   pub fn get_var(&self, identifier: &str) -> Option<*const Value> {
     match self.variables.get(identifier) {
       Some(val) => Some(*val),
@@ -94,38 +101,39 @@ impl Scope {
     }
   }
   
-  fn find_and_set(&mut self, identifier: &str, val: *const Value) -> bool { // -> did set variable
-    match self.parent {
-      Some(parent) => unsafe {
-        if (&mut *parent).find_and_set(identifier, val) {
-          true
-        } else {
-          match self.get_var(identifier) {
-            Some(_) => {
-              self.variables.insert(identifier.to_string(), val);
-              true
-            },
-            None => false
-          }
-        }
+  fn set_var(&mut self, identifier: &str, val: *const Value) -> bool { // -> did set variable
+    match self.get_var_directly(identifier) {
+      Some(_) => {
+        self.variables.insert(identifier.to_string(), val);
+        true
       },
-      None => {
-        match self.get_var(identifier) {
-          Some(_) => {
-            self.variables.insert(identifier.to_string(), val);
+      None => match self.parent {
+        Some(parent) => unsafe {
+          if (&mut *parent).set_var(identifier, val) {
             true
-          },
-          None => false
+          } else {
+            match self.get_var_directly(identifier) {
+              Some(_) => {
+                self.variables.insert(identifier.to_string(), val);
+                true
+              },
+              None => false
+            }
+          }
+        },
+        None => {
+          self.variables.insert(identifier.to_string(), val);
+          true
         }
       }
     }
   }
 
-  pub fn set_var(&mut self, identifier: &str, val: *const Value) {
-    if !self.find_and_set(identifier, val) {
-      self.variables.insert(identifier.to_string(), val);
-    }
-  }
+  // pub fn set_var(&mut self, identifier: &str, val: *const Value) {
+  //   if !self.find_and_set(identifier, val) {
+  //     self.variables.insert(identifier.to_string(), val);
+  //   }
+  // }
 
   pub fn set_var_directly(&mut self, identifier: &str, val: *const Value) {
     self.variables.insert(identifier.to_string(), val);
@@ -376,7 +384,7 @@ impl VMExec {
       }
     };
 
-    let is_assignment = operation == &ASSIGN;
+    let is_assignment = operation == &ASSIGN || operation == &LET;
 
     let mut val1 = val1f;
     let mut val2 = val2f;
@@ -465,15 +473,31 @@ impl VMExec {
           self.root.pool.push(res);
           Ok(res_point)
         },
-        (&Value::Variable(ref identifier, _), &Value::Literal(ref lit)) => {
+        (&Value::Variable(ref identifier, ref pos), &Value::Literal(ref lit)) => {
           match (lit, operation) {
             (_, &ASSIGN) => {
               let mut scope = unsafe {
                 &mut *self.scope_stack_peek()?
               };
+              if true { // variable strict mode
+                match scope.get_var(identifier) {
+                  Some(_) => {},
+                  None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+                    &Some(pos) => pos,
+                    &None => 0
+                  }))
+                }
+              }
               scope.set_var(identifier, val2);
               Ok(val2) // might be memory error
             },
+            (_, &LET) => {
+              let mut scope = unsafe {
+                &mut *self.scope_stack_peek()?
+              };
+              scope.set_var_directly(identifier, val2);
+              Ok(val2) // might be memory error
+            }
             _ => {
               Ok(NIL)
             }
@@ -711,7 +735,7 @@ impl VMExec {
           PUSH_NIL => {
             self.stack_push(NIL);
           },
-          ADD | SUB | MULTIPLY | ASSIGN | DIVIDE |
+          ADD | SUB | MULTIPLY | ASSIGN | LET | DIVIDE |
           GT | LT | GTOREQ | LTOREQ => {
             let pos = self.get_debug_pos()?;
 

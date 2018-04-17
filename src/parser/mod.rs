@@ -20,6 +20,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
   let mut allowed_literal = true;
   let mut allowed_identifier = true;
   let mut allowed_operators: Vec<Token> = vec![
+    Let,
     ParOpen,
     LineBreak,
     Bang,
@@ -93,7 +94,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_literal = true;
             allowed_operators = vec![
               ParOpen, Minus, Bang, Print,
-              While, If, Func
+              While, Let, If, Func
             ];
           },
           Plus | Minus | Asterix | Slash | Bang | DoubleAsterix => {
@@ -127,7 +128,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_literal = true;
             allowed_operators = vec![
               ParClose, ParOpen, Print,
-              If, While
+              Let, If, While
             ];
           },
           ParClose => {
@@ -154,7 +155,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_literal = true;
             allowed_operators = vec![
               ParOpen, EOF, BraceClose,
-              If, While,
+              Let, If, While,
               Print
             ];
           },
@@ -165,6 +166,9 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
               Minus, Bang, ParOpen, Print,
               If, While
             ];
+          },
+          Let => {
+            allowed_identifier = true;
           },
           If => {
             allowed_identifier = true;
@@ -190,7 +194,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_literal = true;
             allowed_operators = vec![
               Minus, Bang, ParOpen, Print, BraceClose, Func,
-              If, While
+              Let, If, While
             ];
           },
           BraceClose => {

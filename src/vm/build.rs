@@ -80,6 +80,7 @@ impl VMBuild {
           &(Token::Minus, _) => SUB,
           &(Token::Asterix, _) => MULTIPLY,
           &(Token::Equals, _) => ASSIGN,
+          &(Token::Let, _) => LET,
           &(Token::Slash, _) => DIVIDE,
           
           &(Token::Lt, _) => LT,
