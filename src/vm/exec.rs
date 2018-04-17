@@ -649,27 +649,42 @@ impl VMExec {
             self.stack_push(val_point);
           },
           PUSH_VAR => {
-            unsafe {
-              // let identifier = self.stack_pop();
-              // let identifier = match &*identifier {
-              //   &Value::Literal(Literal::String(ref s)) => s,
-              //   _ => return Err(VMExecError::InvalidIdentifier(format!("{:?}", &*identifier)))
-              // };
+            // let identifier = self.stack_pop();
+            // let identifier = match &*identifier {
+            //   &Value::Literal(Literal::String(ref s)) => s,
+            //   _ => return Err(VMExecError::InvalidIdentifier(format!("{:?}", &*identifier)))
+            // };
 
-              let identifier = match content {
-                &OperationLiteral::String(ref s, len) => {
-                  self.op_i += len as i32; // offset of string
-                  s.to_owned()
-                },
-                _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
-              };
+            let identifier = match content {
+              &OperationLiteral::String(ref s, len) => {
+                self.op_i += len as i32; // offset of string
+                s.to_owned()
+              },
+              _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
+            };
 
-              let mut pos = self.get_debug_pos()?;
+            let mut pos = self.get_debug_pos()?;
 
-              let val = Box::new(Value::Variable(identifier.to_string(), pos)); // temp
-              let val_point = &*val as *const Value;
-              self.root.pool.push(val);
-              self.stack_push(val_point);
+            let val = Box::new(Value::Variable(identifier.to_string(), pos)); // temp
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
+          },
+          PUSH_VALUE => {
+            let value = self.stack_pop();
+          
+            match unsafe { &*value } {
+              &Value::Variable(ref identifier, _) => {
+                let mut scope = unsafe {
+                  &mut *self.scope_stack_peek()?
+                };
+
+                match scope.get_var(identifier) {
+                  Some(val) => self.stack_push(val),
+                  None => self.stack_push(NIL)
+                }
+              },
+              _ => self.stack_push(value)
             }
           },
           PUSH_FUNC => {
@@ -835,7 +850,7 @@ impl VMExec {
     }
   }
 
-  pub fn exec(&mut self, mut program: Program, append: bool) -> Result<String, VMExecError> {
+  pub fn exec(&mut self, program: Program, append: bool) -> Result<String, VMExecError> {
     match self.do_exec(program, append) {
       Ok(val) => Ok(val),
       Err(err) => {

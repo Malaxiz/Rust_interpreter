@@ -32,8 +32,8 @@ while (i = i + 1) < 1e5 {
 };
 print! "Finished";
 
-let myFunc = fn(b) {
-  print! "hello" + b;
+let myFunc = fn(bas) {
+  print! "hello" + bas;
 };
 
 print! myFunc;

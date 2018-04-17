@@ -57,6 +57,7 @@ enum_from_primitive! {
     PUSH_BOOL,  // [content: 1b]
     PUSH_STRING, // [content: str, NULL]
     PUSH_VAR, // [content: str, NULL, I32, debug: 4b], // looks up variable
+    PUSH_VALUE, // [], pops a value, checks if variable, then pushes the value of the variable 
     PUSH_STACK_VAR, // [I32, debug: 4b] //  pops a string from the stack and looks up variable
     PUSH_FUNC, // [I32, debug: 4b, I32, pos: 4b, I32, parameter_len: 4b, STRING, par1: str, STRING, par2: str, ..., body_len: 4b, body]
     CALL_FUNC, // [I32, debug: 4b, I32, argument_len]
@@ -101,6 +102,14 @@ bitflags! {
     const CODE = 0x03;
   }
 }
+
+// bitflags! {
+//   pub struct ExecOptions: u32 {
+//     const NONE = 0x00;
+//     const STRICT_FUNCTIONS = 0x01;
+//     const STRICT_ASSIGNMENT = 0x02;
+//   }
+// }
 
 #[derive(Debug)]
 pub enum OperationLiteral {

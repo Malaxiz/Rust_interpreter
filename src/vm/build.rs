@@ -351,18 +351,22 @@ impl VMBuild {
         let last_is_stmt = body.len() <= 0 || match &*body[body.len() - 1] {
           &Declaration::Statement(ref stmt, _) => match &**stmt {
             &Statement::ExpressionStmt(ref _box, is_stmt, _) => is_stmt,
-            _ => false
+            // _ => false
           },
-          _ => false
+          // _ => false
         };
+
+        if last_is_stmt {
+          body_v.push(u(PUSH_NIL));
+        }
 
         let mut v = vec![u(PUSH_FUNC)];
 
-        let mut debug_offset = 0;
+        // let mut debug_offset = 0;
         if self.is_debug {
           v.push(u(I32));
           v.append(&mut self.get_debug_binary(pos));
-          debug_offset = 5;
+          // debug_offset = 5;
         }
 
         v.push(u(I32));
@@ -375,13 +379,11 @@ impl VMBuild {
 
         v.push(u(JUMP));
         v.push(u(I32));
-        v.append(&mut get_int_binary(body_v.len() as i32 + 1 + if last_is_stmt {1} else {0}));
+        v.append(&mut get_int_binary(body_v.len() as i32 + 2));
 
         v.append(&mut body_v);
-        if last_is_stmt {
-          v.push(u(PUSH_NIL))
-        }
 
+        v.push(u(PUSH_VALUE));
         v.push(u(JUMPSTACKABS));
         v
       },
