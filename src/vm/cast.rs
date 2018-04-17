@@ -41,7 +41,7 @@ impl VMExec {
           None => 0
         }))
       },
-      &Value::None => {
+      _ => {
         return Err(VMExecError::Temp(5));
       }
     })
@@ -75,7 +75,7 @@ impl VMExec {
           None => 0
         }))
       },
-      &Value::None => {
+      _ => {
         return Err(VMExecError::Temp(5));
       }
     })

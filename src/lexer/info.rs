@@ -53,6 +53,9 @@ pub enum Token {
 
   // keywords
   Let,
+  Ref,
+  DeRef,
+  Struct,
   If,
   Else,
   While,
@@ -104,6 +107,9 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "\t" => Tab,
 
     "let" => Let,
+    "&" => Ref,
+    "*" => DeRef,
+    "struct" => Struct,
     "if" => If,
     "while" => While,
     "else" => Else,

@@ -44,11 +44,11 @@ pub enum Literal {
 #[derive(Clone, Debug)]
 pub enum Value {
   Variable(String, Option<i32>),
+  // Scope(*mut Scope),
+  Reference(*const Value),
   Literal(Literal),
   None,
 }
-
-// fn get_binary_pos(Vec<u8>)
 
 pub struct Root {
   pool: Vec<Box<Value>>,
@@ -490,14 +490,14 @@ impl VMExec {
                 }
               }
               scope.set_var(identifier, val2);
-              Ok(val2) // might be memory error
+              Ok(val2)
             },
             (_, &LET) => {
               let mut scope = unsafe {
                 &mut *self.scope_stack_peek()?
               };
               scope.set_var_directly(identifier, val2);
-              Ok(val2) // might be memory error
+              Ok(val2)
             }
             _ => {
               Ok(NIL)
@@ -616,18 +616,11 @@ impl VMExec {
             self.stack_push(val_point);
           },
           PUSH_JUMP => {
-            // let val = Box::new(Value::Literal(Literal::Int(match content {
-            //   &OperationLiteral::Int(int) => int,
-            //   _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
-            // })));
             let val = match content {
               &OperationLiteral::Int(int) => int,
               _ => return Err(VMExecError::InvalidOperationContent(self.op_i as usize))
             };
             self.op_i += 4; // offset of i32
-            // let val_point = &*val as *const Value;
-            // self.root.pool.push(val);
-            // self.jump_stack_push(val_point);
             self.jump_stack_push(val);
           },
           PUSH_BOOL => {
@@ -650,12 +643,6 @@ impl VMExec {
             self.stack_push(val_point);
           },
           PUSH_VAR => {
-            // let identifier = self.stack_pop();
-            // let identifier = match &*identifier {
-            //   &Value::Literal(Literal::String(ref s)) => s,
-            //   _ => return Err(VMExecError::InvalidIdentifier(format!("{:?}", &*identifier)))
-            // };
-
             let identifier = match content {
               &OperationLiteral::String(ref s, len) => {
                 self.op_i += len as i32; // offset of string
@@ -745,8 +732,6 @@ impl VMExec {
             self.jump_stack_push(jump_stack);
 
             self.op_i = func.0;
-
-            // println!("{:?}", func);
           },
           PUSH_NIL => {
             self.stack_push(NIL);
@@ -776,38 +761,30 @@ impl VMExec {
             self.scope_stacki -= 1;
           },
           JUMP => {
-            unsafe {
-              let to = self.get_int()?;
-              // println!("jumplength: {}", to);
-              // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
-              self.op_i += to;
-            }
-          },
-          JUMPSTACK => {
-            let to = self.jump_stack_pop()?;
+            let to = self.get_int()?;
             // println!("jumplength: {}", to);
             // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
             self.op_i += to;
           },
+          JUMPSTACK => {
+            let to = self.jump_stack_pop()?;
+            self.op_i += to;
+          },
           JUMPSTACKABS => {
             let to = self.jump_stack_pop()?;
-            // println!("jumplength: {}", to);
-            // println!("jumping to: {:#?}", vec!(&self.program[(self.op_i + to - 1) as usize], &self.program[(self.op_i + to) as usize], &self.program[(self.op_i + to + 1) as usize]));
             self.op_i = to;
           },
           JUMPIFN => {
-            unsafe {
-              let mut expr_pos = self.get_debug_pos()?;
+            let mut expr_pos = self.get_debug_pos()?;
 
-              // let to = self.stack_pop();
-              let to = self.get_int()?;
-              let expr = self.stack_pop();
-              let expr = self.cast_bool(expr, expr_pos)?;
+            // let to = self.stack_pop();
+            let to = self.get_int()?;
+            let expr = self.stack_pop();
+            let expr = self.cast_bool(expr, expr_pos)?;
 
-              if !expr {
-                // println!("jumping to: {:#?}", vec!(&self.program[self.op_i + to - 2], &self.program[self.op_i + to - 1], &self.program[self.op_i + to]));
-                self.op_i += to;
-              }
+            if !expr {
+              // println!("jumping to: {:#?}", vec!(&self.program[self.op_i + to - 2], &self.program[self.op_i + to - 1], &self.program[self.op_i + to]));
+              self.op_i += to;
             }
           },
           PRINT => {
