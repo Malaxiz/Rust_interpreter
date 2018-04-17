@@ -27,15 +27,16 @@ fn get_num_binary(num: f64) -> Vec<u8> {
   bv.to_vec()
 }
 
-fn get_int_binary(pos: i32) -> Vec<u8> {
+fn get_int_binary(int: i32) -> Vec<u8> {
   let bv: [u8; 4] = unsafe {
-    mem::transmute(pos)
+    mem::transmute(int)
   };
   bv.to_vec()
 }
 
 pub struct VMBuild {
   is_debug: bool,
+  debug_offset: usize,
   curr_pos: i32
 }
 
@@ -43,13 +44,18 @@ impl VMBuild {
   pub fn new() -> Self {
     Self {
       is_debug: false,
-      curr_pos: 0
+      curr_pos: 0,
+      debug_offset: 0
     }
   }
 
   fn reset(&mut self) {
     self.is_debug = false;
     self.curr_pos = 0;
+  }
+
+  fn get_debug_binary(&self, pos: i32) -> Vec<u8> {
+    get_int_binary(pos + self.debug_offset as i32)
   }
 
   fn build_binary(&mut self, expr: &Expression, pos: i32) -> Result<Vec<u8>, VMBuildError> {
@@ -90,7 +96,7 @@ impl VMBuild {
           };
 
           left.push(u(I32)); 
-          left.append(&mut get_int_binary(pos));
+          left.append(&mut self.get_debug_binary(pos));
         }
 
         left
@@ -111,7 +117,7 @@ impl VMBuild {
 
             if self.is_debug {
               v.push(u(I32));
-              v.append(&mut get_int_binary(pos));
+              v.append(&mut self.get_debug_binary(pos));
             }
 
             v
@@ -156,7 +162,7 @@ impl VMBuild {
 
         if self.is_debug {
           v.push(u(I32)); 
-          v.append(&mut get_int_binary(pos));
+          v.append(&mut self.get_debug_binary(pos));
         }
 
         v
@@ -211,7 +217,7 @@ impl VMBuild {
         let mut debug_info = vec![];
         if self.is_debug {
           debug_info.push(u(I32));
-          debug_info.append(&mut get_int_binary(expr_pos));
+          debug_info.append(&mut self.get_debug_binary(expr_pos));
         }
 
         let mut v = self.build_binary(&*expr, expr_pos)?;
@@ -252,7 +258,7 @@ impl VMBuild {
         let mut debug_info = vec![];
         if self.is_debug {
           debug_info.push(u(I32));
-          debug_info.append(&mut get_int_binary(expr_pos));
+          debug_info.append(&mut self.get_debug_binary(expr_pos));
           debug_offset = 5;
         }
 
@@ -354,7 +360,7 @@ impl VMBuild {
         let mut debug_offset = 0;
         if self.is_debug {
           v.push(u(I32));
-          v.append(&mut get_int_binary(pos));
+          v.append(&mut self.get_debug_binary(pos));
           debug_offset = 5;
         }
 
@@ -382,20 +388,26 @@ impl VMBuild {
         let mut debug_info = Vec::new();
         if self.is_debug {
           debug_info.push(u(I32));
-          debug_info.append(&mut get_int_binary(pos));
+          debug_info.append(&mut self.get_debug_binary(pos));
         }
 
-        let mut v = self.build_expr(expr, pos)?;
+        let mut v = Vec::new();
 
         for i in args {
           v.append(&mut self.build_expr(i, pos)?);
         }
+
+        v.append(&mut self.build_expr(expr, pos)?);
+
+        v.push(u(SCOPE_NEW));
 
         v.push(u(CALL_FUNC));
         v.append(&mut debug_info);
 
         v.push(u(I32));
         v.append(&mut get_int_binary(args.len() as i32));
+
+        v.push(u(SCOPE_END));
 
         v
       },
@@ -428,8 +440,9 @@ impl VMBuild {
     }
   }
 
-  pub fn build(&mut self, decls: Decls, query: String, options: BuildOptions) -> Result<Instructions, VMBuildError> {
+  pub fn build(&mut self, decls: Decls, query: String, debug_offset: usize, options: BuildOptions) -> Result<Instructions, VMBuildError> {
     self.reset();
+    self.debug_offset = debug_offset;
 
     let mut program: Vec<u8> = vec![u(VERSION), 0x01];
 

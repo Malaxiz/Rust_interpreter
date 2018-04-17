@@ -226,6 +226,11 @@ fn exec_err(err: &VMExecError, query: &str) {
       err_pos = pos;
       description = format!("invalid cast: {:?} to {}", literal, to);
     },
+    &VMExecError::ArgumentMismatch(ref func_pars, func_pars_len, args_len, func_abs_pos, pos) => {
+      title = "VMExecError: ArgumentMismatch";
+      err_pos = pos;
+      description = format!("<function ({:?}) at {}> takes {} parameter{}, but {} {} given", func_pars, func_abs_pos, func_pars_len, if func_pars_len == 1 {""} else {"s"}, args_len, if args_len == 1 {"was"} else {"were"});
+    },
     _ => {
       title = "VMExecError!";
       description = format!("{:?}", err);

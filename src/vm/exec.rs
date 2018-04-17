@@ -3,6 +3,8 @@ use vm::OPCode::*;
 use enum_primitive::FromPrimitive;
 use std::collections::HashMap;
 
+const STACK_SIZE: usize = 512;
+
 #[derive(Debug)]
 pub enum VMExecError {
   // error, pos
@@ -10,6 +12,12 @@ pub enum VMExecError {
   InvalidOPCode(String),
   UnsupportedOPCode(String),
   VariableNotDefined(String, i32),
+
+  // STACK_LIMIT, pos
+  StackLimitReached(i32, i32),
+
+  // func_pars, func_pars_len, args_len, func_abs_pos, pos
+  ArgumentMismatch(Vec<String>, i32, i32, i32, i32),
 
   // position in bytecode
   InvalidOperationContent(usize),
@@ -118,6 +126,10 @@ impl Scope {
       self.variables.insert(identifier.to_string(), val);
     }
   }
+
+  pub fn set_var_directly(&mut self, identifier: &str, val: *const Value) {
+    self.variables.insert(identifier.to_string(), val);
+  }
 }
 
 pub struct VMExec {
@@ -182,6 +194,13 @@ impl VMExec {
     }
     self.stack = [&Value::None; 512];
     self.stacki = 0;
+    self.jump_stack = [0; 512];
+    self.jump_stacki = 0;
+    self.scope_stacki = 0;
+
+    let mut scope = self.scope_stack[0];
+    self.scope_stack = [None; 512];
+    self.scope_stack[0] = scope;
   }
 
   fn consume(&mut self) -> u8 {
@@ -242,9 +261,18 @@ impl VMExec {
     }
   }
 
-  fn scope_stack_push(&mut self, val: *mut Scope) {
+  fn scope_stack_push(&mut self, val: *mut Scope, pos: Option<i32>) -> Result<(), VMExecError> {
     self.scope_stacki += 1;
-    self.scope_stack[self.scope_stacki] = Some(val);
+
+    if self.scope_stacki < STACK_SIZE - 1 {
+      self.scope_stack[self.scope_stacki] = Some(val);
+      Ok(())
+    } else {
+      Err(VMExecError::StackLimitReached(STACK_SIZE as i32, match pos {
+        Some(val) => val,
+        None => 0
+      }))
+    }
   }
 
   fn scope_stack_pop(&mut self) -> Result<*mut Scope, VMExecError> {
@@ -468,7 +496,7 @@ impl VMExec {
     print!("---------\n");
   }
 
-  pub fn exec(&mut self, mut program: Program, append: bool) -> Result<String, VMExecError> {
+  fn do_exec(&mut self, mut program: Program, append: bool) -> Result<String, VMExecError> {
     self.reset(append);
 
     if append {
@@ -639,16 +667,38 @@ impl VMExec {
             let self_point = self as *mut Self;
 
             let pos = self.get_debug_pos()?;
-            let args_len = self.get_int()?;
+            let args_len = self.get_int()? as usize;
 
             let func = self.stack_pop();
             let func = unsafe {
               (*self_point).cast_func(func, pos)?
             };
+            let func_pars_len = func.1.len();
 
             let mut args = Vec::with_capacity(args_len as usize);
             for i in 0..args_len {
               args.push(self.stack_pop());
+            }
+
+            if true { // strict function mode
+              if func_pars_len != args_len {
+                return Err(VMExecError::ArgumentMismatch(func.1.clone(), func_pars_len as i32, args_len as i32, func.0, match pos {
+                  Some(pos) => pos,
+                  None => 0
+                }));
+              }
+            } else if func_pars_len > args_len {
+              for i in 0..(func_pars_len - args_len) {
+                args.push(NIL);
+              }
+            }
+
+            let mut scope = unsafe {
+              &mut *self.scope_stack_peek()?
+            };
+
+            for (k, v) in func.1.into_iter().enumerate() {
+              scope.set_var_directly(v, args[k]);
             }
 
             let jump_stack = self.op_i;
@@ -674,7 +724,7 @@ impl VMExec {
             let mut scope = Box::new(Scope::new(&mut self.root as *mut Root, Some(self.scope_stack_peek()?)));
             let mut scope_point = &mut *scope as *mut Scope;
             self.root.scopes.push(scope);
-            self.scope_stack_push(scope_point);
+            self.scope_stack_push(scope_point, None)?;
           },
           SCOPE_END => {
             self.scope_stack_pop()?;
@@ -757,6 +807,16 @@ impl VMExec {
         self.op_i += 1;
       } else {
         return Err(VMExecError::InvalidOPCode(format!("{:?}", op.val)))
+      }
+    }
+  }
+
+  pub fn exec(&mut self, mut program: Program, append: bool) -> Result<String, VMExecError> {
+    match self.do_exec(program, append) {
+      Ok(val) => Ok(val),
+      Err(err) => {
+        self.op_i = self.program.len() as i32;
+        Err(err)
       }
     }
   }

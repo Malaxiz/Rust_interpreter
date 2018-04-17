@@ -35,7 +35,12 @@ fn do_build(query: &str, vm: &mut VM, options: BuildOptions) -> Result<Instructi
     Err(err) => return Err(LangErr::ParserErr(err))
   };
 
-  let instructions = match vm.build(parsed, String::from(query), options) {
+  let mut debug_offset = vm.vm_exec.query.len();
+  if debug_offset > 0 {
+    vm.vm_exec.query += "\n\n\n";
+    debug_offset += 3;
+  }
+  let instructions = match vm.build(parsed, String::from(query), debug_offset, options) {
     Ok(val) => val,
     Err(err) => return Err(LangErr::VMBuildErr(err))
   };

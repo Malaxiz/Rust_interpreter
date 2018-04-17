@@ -132,7 +132,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
           },
           ParClose => {
             allowed_operators = vec![
-              ParClose, ParOpen, Plus, Minus, Asterix, Slash, Dot, SemiColon, BraceOpen,
+              ParClose, ParOpen, Plus, Minus, Asterix, Slash, Dot, SemiColon, BraceOpen, BraceClose,
               EqualsEquals, BangEquals, LtOrEquals, GtOrEquals, Gt, Lt, EOF
             ];
           },

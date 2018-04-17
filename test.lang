@@ -32,13 +32,13 @@ while (i = i + 1) < 1e5 {
 };
 print! "Finished";
 
-myFunc = fn(a, b) {
-  print! "hello"
+myFunc = fn(b) {
+  print! "hello" - 5
 };
 
 print! myFunc;
 
-myFunc()
+myFunc(5)
 
 //1 // success
 

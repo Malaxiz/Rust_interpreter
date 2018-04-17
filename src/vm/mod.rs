@@ -218,8 +218,8 @@ impl VM {
     self.vm_exec.query
   }
 
-  pub fn build(&mut self, decls: Decls, code: String, options: BuildOptions) -> Result<Instructions, VMBuildError> {
-    self.vm_build.build(decls, code, options)
+  pub fn build(&mut self, decls: Decls, code: String, debug_offset: usize, options: BuildOptions) -> Result<Instructions, VMBuildError> {
+    self.vm_build.build(decls, code, debug_offset, options)
   }
 
   pub fn exec(&mut self, mut program: Program, append: bool) -> Result<String, VMExecError> {
