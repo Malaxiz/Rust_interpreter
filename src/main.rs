@@ -97,7 +97,10 @@ fn main() {
             file.write_all(&instructions).unwrap();
             println!("build successful, program written to: {:?}", output);
           },
-          Err(_) => println!("build error")
+          Err(_) => {
+            println!("build error");
+            std::process::exit(-1);
+          }
         };
       },
       "run" => {
@@ -128,12 +131,16 @@ fn main() {
 
         match lang::exec(program, &mut vm, false) {
           Ok(res) => println!("{}", res),
-          Err(_) => {}
+          Err(_) => {
+            std::process::exit(-1);
+          }
         }
 
         if shell_after {
           shell(&mut vm);
         }
+
+        std::process::exit(0);
       },
       _ => {}
     }

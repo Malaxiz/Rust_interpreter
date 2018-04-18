@@ -1,7 +1,16 @@
 
 
 use vm::*;
-use vm::exec::{VMExec, Literal, Value};
+use vm::exec::{VMExec, VMExecError, Literal, Value, Function};
+
+// pub type NativeVM<'a> = &'a VMExec;
+pub type NativePars = Vec<*const Value>;
+pub type NativeReturn = Result<Option<Value>, VMExecError>;
+
+pub enum FunctionType<'a> {
+  InCode(i32, &'a Vec<String>),
+  Native(fn(NativePars) -> NativeReturn)
+}
 
 type ValuePointer = *const Value;
 
@@ -47,7 +56,7 @@ impl VMExec {
     })
   }
 
-  pub fn cast_func(&self, val: ValuePointer, expr_pos: Option<i32>) -> Result<(i32, &Vec<String>), VMExecError> {
+  pub fn cast_func(&self, val: ValuePointer, expr_pos: Option<i32>) -> Result<FunctionType, VMExecError> {
     let val = unsafe {
       &*val
     };
@@ -64,8 +73,11 @@ impl VMExec {
     Ok(match val {
       &Value::Literal(ref literal) => {
         match *literal {
-          Literal::Function(pos, ref parameters) => (pos, parameters),
-          _ => return Err(VMExecError::InvalidCast(literal.clone(), "<Function>".to_string(), expr_pos))
+          Literal::Function(ref func_type) => match func_type {
+            &Function::InCode(pos, ref parameters) => FunctionType::InCode(pos, parameters),
+            &Function::Native(func) => FunctionType::Native(func)
+          },
+          _ => return Err(VMExecError::InvalidCast(literal.clone(), "<function>".to_string(), expr_pos))
         }
       },
       &Value::Variable(ref identifier, pos) => match scope.get_var(identifier) {

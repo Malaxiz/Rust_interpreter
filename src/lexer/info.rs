@@ -108,7 +108,7 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
 
     "let" => Let,
     "&" => Ref,
-    "*" => DeRef,
+    // "*" => DeRef,
     "struct" => Struct,
     "if" => If,
     "while" => While,

@@ -10,6 +10,7 @@ pub use lexer::Token;
 pub mod build;
 pub mod exec;
 pub mod cast;
+pub mod native;
 
 use vm::build::VMBuild;
 use vm::exec::{VMExec, Value};

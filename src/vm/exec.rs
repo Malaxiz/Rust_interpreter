@@ -1,7 +1,9 @@
 use vm::*;
 use vm::OPCode::*;
-use enum_primitive::FromPrimitive;
 use std::collections::HashMap;
+use self::cast::{FunctionType, NativePars, NativeReturn};
+
+use self::native::{add};
 
 const STACK_SIZE: usize = 512;
 
@@ -35,8 +37,8 @@ pub enum Literal {
   Bool(bool),
   String(String),
 
-  // pos, parameters
-  Function(i32, Vec<String>),
+  
+  Function(Function),
 
   Nil
 }
@@ -44,10 +46,18 @@ pub enum Literal {
 #[derive(Clone, Debug)]
 pub enum Value {
   Variable(String, Option<i32>),
-  // Scope(*mut Scope),
-  Reference(*const Value),
+  Instance(*mut Scope),
+  // Reference(*const Value),
   Literal(Literal),
   None,
+}
+
+#[derive(Clone, Debug)]
+pub enum Function {
+  Native(fn(NativePars) -> NativeReturn),
+
+  // pos, parameters
+  InCode(i32, Vec<String>)
 }
 
 pub struct Root {
@@ -191,6 +201,13 @@ impl VMExec {
     let mut scope_point = &mut *scope as *mut Scope;
     this.root.scopes.push(scope);
     this.scope_stack[0] = Some(scope_point);
+
+    let add_func = Box::new(Value::Literal(Literal::Function(Function::Native(add))));
+    let add_func_point: *const Value = &*add_func;
+    this.root.pool.push(add_func);
+    unsafe {
+      (*scope_point).set_var_directly("add", add_func_point);
+    }
 
     this
   }
@@ -339,17 +356,22 @@ impl VMExec {
       &Literal::Nil => format!("nil"),
       &Literal::Bool(b) => format!("{}", if b {"true"} else {"false"}),
       &Literal::String(ref val) => format!("{}{}{}", quotes, val, quotes),
-      &Literal::Function(pos, ref arguments) => {
-        let mut args = String::new();
-        let mut first = true;
-        for i in arguments {
-          if !first {
-            args += ", ";
+      &Literal::Function(ref func_type) => match func_type {
+        &Function::InCode(pos, ref arguments) => {
+          let mut args = String::new();
+          let mut first = true;
+          for i in arguments {
+            if !first {
+              args += ", ";
+            }
+            args += i;
+            first = false;
           }
-          args += i;
-          first = false;
+          format!("<function ({}) at {}>", args, pos)
+        },
+        &Function::Native(ref func) => {
+          format!("<native function at {:?}>", func)
         }
-        format!("<function ({}) at {}>", args, pos)
       },
       _ => format!("unknown literal (0)")
     }
@@ -685,7 +707,7 @@ impl VMExec {
               parameters.push(self.get_string()?);
             }
 
-            let val = Box::new(Value::Literal(Literal::Function(self.op_i + body_offset, parameters)));
+            let val = Box::new(Value::Literal(Literal::Function(Function::InCode(self.op_i + body_offset, parameters))));
             let val_point = &*val as *const Value;
             self.root.pool.push(val);
             self.stack_push(val_point);
@@ -700,38 +722,55 @@ impl VMExec {
             let func = unsafe {
               (*self_point).cast_func(func, pos)?
             };
-            let func_pars_len = func.1.len();
 
             let mut args = Vec::with_capacity(args_len as usize);
             for i in 0..args_len {
               args.push(self.stack_pop());
             }
 
-            if true { // strict function mode
-              if func_pars_len != args_len {
-                return Err(VMExecError::ArgumentMismatch(func.1.clone(), func_pars_len as i32, args_len as i32, func.0, match pos {
-                  Some(pos) => pos,
-                  None => 0
-                }));
-              }
-            } else if func_pars_len > args_len {
-              for i in 0..(func_pars_len - args_len) {
-                args.push(NIL);
+            match func {
+              FunctionType::InCode(to, func_pars) => {
+                let func_pars_len = func_pars.len();
+
+                if true { // strict function mode
+                  if func_pars_len != args_len {
+                    return Err(VMExecError::ArgumentMismatch(func_pars.clone(), func_pars_len as i32, args_len as i32, to, match pos {
+                      Some(pos) => pos,
+                      None => 0
+                    }));
+                  }
+                } else if func_pars_len > args_len {
+                  for i in 0..(func_pars_len - args_len) {
+                    args.push(NIL);
+                  }
+                }
+
+                let mut scope = unsafe {
+                  &mut *self.scope_stack_peek()?
+                };
+
+                for (k, v) in func_pars.into_iter().enumerate() {
+                  scope.set_var_directly(v, args[k]);
+                }
+
+                let jump_stack = self.op_i;
+                self.jump_stack_push(jump_stack);
+
+                self.op_i = to;
+              },
+              FunctionType::Native(func) => {
+                let res = func(args)?;
+                match res {
+                  Some(val) => {
+                    let val = Box::new(val); // temp
+                    let val_point = &*val as *const Value;
+                    self.root.pool.push(val);
+                    self.stack_push(val_point);
+                  },
+                  None => self.stack_push(NIL)
+                }
               }
             }
-
-            let mut scope = unsafe {
-              &mut *self.scope_stack_peek()?
-            };
-
-            for (k, v) in func.1.into_iter().enumerate() {
-              scope.set_var_directly(v, args[k]);
-            }
-
-            let jump_stack = self.op_i;
-            self.jump_stack_push(jump_stack);
-
-            self.op_i = func.0;
           },
           PUSH_NIL => {
             self.stack_push(NIL);

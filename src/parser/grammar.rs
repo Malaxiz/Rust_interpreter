@@ -297,6 +297,14 @@ impl<'a> Grammar {
     self.equality()
   }
 
+  // fn struct_def(&mut self) -> Result<Expression, ParserErr> {
+  //   let pos = self.get_pos();
+
+  //   if let Some(op) = self.do_match(&[Struct]) {
+      
+  //   }
+  // }
+
   fn equality(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.comparison()?;
 
@@ -358,7 +366,18 @@ impl<'a> Grammar {
       return Ok(Expression::Binary(Box::new(Expression::Primary(Primary::Literal(lexer::Literal::Num(0 as f64)), pos)), (operator, pos), Box::new(right)));
     }
 
-    Ok(self.primary()?)
+    Ok(self.dot()?)
+  }
+
+  fn dot(&mut self) -> Result<Expression, ParserErr> {
+    let mut expr = self.primary()?;
+
+    while let Some(op) = self.do_match(&[Dot]) {
+      let right = self.primary()?;
+      expr = Expression::Binary(Box::new(expr), op, Box::new(right));
+    }
+
+    Ok(expr)
   }
 
   fn primary(&mut self) -> Result<Expression, ParserErr> {

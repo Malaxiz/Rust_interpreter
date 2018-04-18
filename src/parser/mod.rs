@@ -21,6 +21,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
   let mut allowed_identifier = true;
   let mut allowed_operators: Vec<Token> = vec![
     Let,
+    Struct,
     ParOpen,
     LineBreak,
     Bang,
@@ -94,7 +95,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_literal = true;
             allowed_operators = vec![
               ParOpen, Minus, Bang, Print,
-              While, Let, If, Func
+              While, Let, Struct, If, Func
             ];
           },
           Plus | Minus | Asterix | Slash | Bang | DoubleAsterix => {
@@ -137,17 +138,14 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
               EqualsEquals, BangEquals, LtOrEquals, GtOrEquals, Gt, Lt, EOF
             ];
           },
-          // Arrow => {
-          //   allowed_identifier = true;
-          //   allowed_literal = true;
-          //   allowed_operators = vec![
-          //     Minus, Bang, ParOpen, BraceOpen,
-          //     If, While, Print
-          //   ];
-          // },
           Func => {
             allowed_operators = vec![
               ParOpen
+            ];
+          },
+          Struct => {
+            allowed_operators = vec![
+              BraceOpen
             ];
           },
           SemiColon => {
@@ -223,6 +221,8 @@ pub fn parse(lexed: Vec<Lexed>) -> Result<Vec<Box<Declaration>>, ParserErr> {
   
   let mut g = grammar::Grammar::new(lexed);
   let program = g.program()?;
+
+  // println!("{:#?}", program);
 
   Ok(program)
 }
