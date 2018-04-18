@@ -1,15 +1,14 @@
-
-
 use vm::*;
-use vm::exec::{VMExec, VMExecError, Literal, Value, Function};
+use vm::exec::{VMExec, VMExecError, Scope, Literal, Value, Function};
 
 // pub type NativeVM<'a> = &'a VMExec;
 pub type NativePars = Vec<*const Value>;
+pub type NativeScope = *mut Scope;
 pub type NativeReturn = Result<Option<Value>, VMExecError>;
 
 pub enum FunctionType<'a> {
   InCode(i32, &'a Vec<String>),
-  Native(fn(NativePars) -> NativeReturn)
+  Native(fn(NativeScope, NativePars) -> NativeReturn)
 }
 
 type ValuePointer = *const Value;

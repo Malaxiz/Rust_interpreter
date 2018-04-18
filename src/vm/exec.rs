@@ -1,9 +1,9 @@
 use vm::*;
 use vm::OPCode::*;
 use std::collections::HashMap;
-use self::cast::{FunctionType, NativePars, NativeReturn};
+use self::cast::{FunctionType, NativeScope, NativePars, NativeReturn};
 
-use self::native::{add};
+use self::native::{add_func, input_func, print_func, format_func};
 
 const STACK_SIZE: usize = 512;
 
@@ -54,7 +54,7 @@ pub enum Value {
 
 #[derive(Clone, Debug)]
 pub enum Function {
-  Native(fn(NativePars) -> NativeReturn),
+  Native(fn(NativeScope, NativePars) -> NativeReturn),
 
   // pos, parameters
   InCode(i32, Vec<String>)
@@ -198,15 +198,23 @@ impl VMExec {
     };
 
     let mut scope = Box::new(Scope::new(&mut this.root as *mut Root, None));
-    let mut scope_point = &mut *scope as *mut Scope;
+    let scope_point = &mut *scope as *mut Scope;
     this.root.scopes.push(scope);
     this.scope_stack[0] = Some(scope_point);
 
-    let add_func = Box::new(Value::Literal(Literal::Function(Function::Native(add))));
-    let add_func_point: *const Value = &*add_func;
-    this.root.pool.push(add_func);
-    unsafe {
-      (*scope_point).set_var_directly("add", add_func_point);
+    let mut funcs: HashMap<&'static str, fn(NativeScope, NativePars) -> NativeReturn> = HashMap::new();
+    funcs.insert("add", add_func);
+    funcs.insert("input", input_func);
+    funcs.insert("print", print_func);
+    funcs.insert("format", format_func);
+
+    for (k, i) in funcs {
+      let func = Box::new(Value::Literal(Literal::Function(Function::Native(i))));
+      let func_point: *const Value = &*func;
+      this.root.pool.push(func);
+      unsafe {
+        (*scope_point).set_var_directly(k, func_point);
+      }
     }
 
     this
@@ -724,9 +732,10 @@ impl VMExec {
             };
 
             let mut args = Vec::with_capacity(args_len as usize);
-            for i in 0..args_len {
+            for _ in 0..args_len {
               args.push(self.stack_pop());
             }
+            args = args.into_iter().rev().collect();
 
             match func {
               FunctionType::InCode(to, func_pars) => {
@@ -759,7 +768,7 @@ impl VMExec {
                 self.op_i = to;
               },
               FunctionType::Native(func) => {
-                let res = func(args)?;
+                let res = func(self.scope_stack_peek()?, args)?;
                 match res {
                   Some(val) => {
                     let val = Box::new(val); // temp
