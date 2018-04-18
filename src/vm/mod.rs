@@ -65,7 +65,6 @@ enum_from_primitive! {
     PUSH_NIL, // []
 
     POP, // pops top value of stack
-    PRINT, // [I32, debug: 4b], pops top value of stack and prints it
 
     // [content: 0b]
     SCOPE_NEW,

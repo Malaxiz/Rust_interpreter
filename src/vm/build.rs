@@ -152,22 +152,6 @@ impl VMBuild {
           }
         }
       },
-      &Expression::PrintExpr(ref expr, pos) => {
-        let expr_pos = match **expr {
-          Expression::Primary(_, pos) => pos,
-          _ => 0
-        };
-
-        let mut v = self.build_binary(&*expr, expr_pos)?;
-        v.push(u(PRINT));
-
-        if self.is_debug {
-          v.push(u(I32)); 
-          v.append(&mut self.get_debug_binary(pos));
-        }
-
-        v
-      },
       &Expression::IfExpr(ref expr, ref body, ref else_body, expr_pos, pos) => {
         let mut body_v = Vec::new();
         let mut body_len = 0;

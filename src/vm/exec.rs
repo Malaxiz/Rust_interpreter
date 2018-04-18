@@ -835,13 +835,6 @@ impl VMExec {
               self.op_i += to;
             }
           },
-          PRINT => {
-            let mut pos = self.get_debug_pos()?;
-
-            unsafe {
-              println!("{}", (*self_point).value_to_string(self.stack_peek(), false)?);
-            }
-          },
           POP => {
             let val = self.stack_pop();
 

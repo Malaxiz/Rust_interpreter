@@ -64,9 +64,6 @@ pub enum Token {
   False,
   Nil,
 
-  // macros
-  Print,
-
   // pretend
   EOF,
   Literal,
@@ -117,8 +114,6 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "true" => True,
     "false" => False,
     "nil" => Nil,
-
-    "print!" => Print,
 
     "!@#$!@#$!@#$" => EOF
   }

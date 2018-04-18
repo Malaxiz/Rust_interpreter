@@ -37,9 +37,7 @@ pub enum Expression {
   FunctionExpr(Vec<String>, Vec<Box<Declaration>>, i32),
 
   // function expression, arguments
-  FunctionCallExpr(Box<Expression>, Vec<Box<Expression>>, i32),
-
-  PrintExpr(Box<Expression>, i32),
+  FunctionCallExpr(Box<Expression>, Vec<Box<Expression>>, i32)
 }
 
 #[derive(Debug, Clone)]
@@ -228,16 +226,7 @@ impl<'a> Grammar {
       }
     }
 
-    Ok(self.print_expr()?)
-  }
-
-  fn print_expr(&mut self) -> Result<Expression, ParserErr> {
-    if let Some((_operator, pos)) = self.do_match(&[Print]) {
-      let expr = self.expression()?;
-      return Ok(Expression::PrintExpr(Box::new(expr), pos));
-    }
-
-    self.while_expr()
+    Ok(self.while_expr()?)
   }
 
   fn while_expr(&mut self) -> Result<Expression, ParserErr> {

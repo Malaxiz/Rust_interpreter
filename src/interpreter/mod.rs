@@ -264,21 +264,6 @@ impl Interpreter {
 
         Ok(last_item)
       },
-      &Expression::PrintExpr(ref expr, ref _pos) => {
-        unsafe {
-          let res = &*self.exec_expr(expr)?;
-          let to_print = match res {
-            &Literal::String(ref s) => String::from(s as &str),
-            &Literal::Bool(b) => String::from(if b { "true" } else { "false" }),
-            &Literal::Nil => String::from("nil"),
-            &Literal::Num(n) => n.to_string(),
-            _ => String::from("print not defined for type")
-          };
-
-          println!("{}", to_print);
-          Ok(res)
-        }
-      },
       &Expression::FunctionExpr(ref parameters, ref body, _pos) => {
         let mut decls: Vec<*const Declaration> = Vec::new();
         for ref i in body {
