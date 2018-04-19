@@ -3,7 +3,7 @@ use vm::OPCode::*;
 use std::collections::HashMap;
 use self::cast::{FunctionType, NativeScope, NativePars, NativeReturn};
 
-use self::native::{add_func, input_func, print_func, format_func};
+use self::native::{value_to_string, add_func, input_func, print_func, format_func};
 
 const STACK_SIZE: usize = 512;
 
@@ -36,9 +36,10 @@ pub enum Literal {
   Int(i32),
   Bool(bool),
   String(String),
-
-  
   Function(Function),
+
+  // op_i pos, debug_pos
+  Structure(i32, Option<i32>),
 
   Nil
 }
@@ -56,7 +57,7 @@ pub enum Value {
 pub enum Function {
   Native(fn(NativeScope, NativePars) -> NativeReturn),
 
-  // pos, parameters
+  // op_ipos , parameters
   InCode(i32, Vec<String>)
 }
 
@@ -357,56 +358,6 @@ impl VMExec {
     }
   }
 
-  fn literal_to_string(&self, literal: &Literal, quotes: bool) -> String {
-    let quotes = if quotes {"\""} else {""};
-    match literal {
-      &Literal::Num(val) => format!("{}", val),
-      &Literal::Nil => format!("nil"),
-      &Literal::Bool(b) => format!("{}", if b {"true"} else {"false"}),
-      &Literal::String(ref val) => format!("{}{}{}", quotes, val, quotes),
-      &Literal::Function(ref func_type) => match func_type {
-        &Function::InCode(pos, ref arguments) => {
-          let mut args = String::new();
-          let mut first = true;
-          for i in arguments {
-            if !first {
-              args += ", ";
-            }
-            args += i;
-            first = false;
-          }
-          format!("<function ({}) at {}>", args, pos)
-        },
-        &Function::Native(ref func) => {
-          format!("<native function at {:?}>", func)
-        }
-      },
-      _ => format!("unknown literal (0)")
-    }
-  }
-
-  fn value_to_string(&self, val: *const Value, quotes: bool) -> Result<String, VMExecError> {
-    unsafe {
-      let mut scope = {
-        &*self.scope_stack_peek()?
-      };
-      Ok(match *val {
-        Value::Literal(ref val) => self.literal_to_string(val, quotes),
-        Value::Variable(ref identifier, pos) => match scope.get_var(identifier) {
-          Some(val) => match *val {
-            Value::Literal(ref val) => self.literal_to_string(val, quotes),
-            _ => format!("unknown value (1)")
-          },
-          None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
-            Some(pos) => pos,
-            None => 0
-          }))
-        },
-        _ => format!("unknown value (2)")
-      })
-    }
-  }
-
   fn literal_operation(&mut self, val1f: *const Value, val2f: *const Value, operation: &OPCode, pos: Option<i32>) -> Result<*const Value, VMExecError> {
     let get_pos = || {
       match pos {
@@ -415,7 +366,10 @@ impl VMExec {
       }
     };
 
-    let is_assignment = operation == &ASSIGN || operation == &LET;
+    let keep_vars = match operation {
+      &ASSIGN | &LET | &DOT => true,
+      _ => false
+    };
 
     let mut val1 = val1f;
     let mut val2 = val2f;
@@ -425,7 +379,7 @@ impl VMExec {
     };
 
     unsafe {
-      if !is_assignment {
+      if !keep_vars {
         if let &Value::Variable(ref identifier, pos) = &*val1f {
           val1 = match scope.get_var(identifier) {
             Some(val) => val,
@@ -504,9 +458,9 @@ impl VMExec {
           self.root.pool.push(res);
           Ok(res_point)
         },
-        (&Value::Variable(ref identifier, ref pos), &Value::Literal(ref lit)) => {
-          match (lit, operation) {
-            (_, &ASSIGN) => {
+        (&Value::Variable(ref identifier, ref pos), _) => {
+          match operation {
+            &ASSIGN => {
               let mut scope = unsafe {
                 &mut *self.scope_stack_peek()?
               };
@@ -522,7 +476,7 @@ impl VMExec {
               scope.set_var(identifier, val2);
               Ok(val2)
             },
-            (_, &LET) => {
+            &LET => {
               let mut scope = unsafe {
                 &mut *self.scope_stack_peek()?
               };
@@ -561,7 +515,7 @@ impl VMExec {
     }
 
     let mut meta_end = false;
-    let mut self_point: *mut Self = self;
+    let self_point: *mut Self = self;
 
     loop {
       let op: &Operation = unsafe {
@@ -622,7 +576,7 @@ impl VMExec {
         match *code {
           END => {
             unsafe {
-              return Ok((*self_point).value_to_string(self.stack_pop(), true)?);
+              return Ok(value_to_string((*self_point).scope_stack_peek()?, self.stack_pop(), true)?);
             }
           },
           PUSH_NUM => {
@@ -778,8 +732,25 @@ impl VMExec {
                   },
                   None => self.stack_push(NIL)
                 }
+              },
+              FunctionType::Structure(to, _struct_pos) => {
+                let jump_stack = self.op_i;
+                self.jump_stack_push(jump_stack);
+                self.op_i = to;
               }
             }
+          },
+          PUSH_STRUCT => {
+            let pos = self.get_debug_pos()?;
+            let to = self.get_int()?;
+
+            let val = Value::Literal(Literal::Structure(to + self.op_i, pos));
+            let val = Box::new(val); // temp
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
+
+            // self.stack_push(NIL);
           },
           PUSH_NIL => {
             self.stack_push(NIL);
@@ -807,6 +778,14 @@ impl VMExec {
           },
           SCOPE_BACK => {
             self.scope_stacki -= 1;
+          },
+          SCOPE_PUSH => {
+            let scope = self.scope_stack_pop()?;
+            let val = Value::Instance(scope);
+            let val = Box::new(val);
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
           },
           JUMP => {
             let to = self.get_int()?;

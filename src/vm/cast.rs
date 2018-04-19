@@ -8,7 +8,8 @@ pub type NativeReturn = Result<Option<Value>, VMExecError>;
 
 pub enum FunctionType<'a> {
   InCode(i32, &'a Vec<String>),
-  Native(fn(NativeScope, NativePars) -> NativeReturn)
+  Native(fn(NativeScope, NativePars) -> NativeReturn),
+  Structure(i32, Option<i32>)
 }
 
 type ValuePointer = *const Value;
@@ -76,6 +77,7 @@ impl VMExec {
             &Function::InCode(pos, ref parameters) => FunctionType::InCode(pos, parameters),
             &Function::Native(func) => FunctionType::Native(func)
           },
+          Literal::Structure(to, pos) => FunctionType::Structure(to, pos),
           _ => return Err(VMExecError::InvalidCast(literal.clone(), "<function>".to_string(), expr_pos))
         }
       },

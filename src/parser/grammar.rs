@@ -33,6 +33,9 @@ pub enum Expression {
   // expr, body, expr_pos, pos
   WhileExpr(Box<Expression>, Vec<Box<Declaration>>, i32, i32),
 
+  // body, pos
+  StructExpr(Vec<Box<Declaration>>, i32),
+
   // parameters, body
   FunctionExpr(Vec<String>, Vec<Box<Declaration>>, i32),
 
@@ -129,38 +132,11 @@ impl<'a> Grammar {
   }
 
   pub fn expression(&mut self) -> Result<Expression, ParserErr> {
-    let res = self.func_call_expr()?;
+    let res = self.let_assign()?;
     Ok(res)
   }
 
   // insert block expr here
-
-  fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
-    let expr = self.let_assign()?;
-
-    if let Some((_, call_pos)) = self.do_match(&[Token::ParOpen]) {
-      let mut args: Vec<Box<Expression>> = Vec::new();
-      loop {
-        if let Some(_) = self.do_match(&[Token::ParClose]) {
-          break;
-        }
-
-        args.push(Box::new(self.expression()?));
-
-        if let None = self.do_match(&[Token::Comma]) {
-          if let None = self.do_match(&[Token::ParClose]) {
-            return Err(ParserErr::GrammarError(01234));
-          } else {
-            break;
-          }
-        }
-      }
-      return Ok(Expression::FunctionCallExpr(Box::new(expr), args, call_pos));
-    }
-
-    // let expr = self.print_expr()?;
-    Ok(expr)
-  }
 
   fn let_assign(&mut self) -> Result<Expression, ParserErr> {
     while let Some(_) = self.do_match(&[Let]) {
@@ -283,16 +259,25 @@ impl<'a> Grammar {
       return Ok(Expression::IfExpr(Box::new(expr), decls, else_decls, expr_pos, pos));
     }
 
-    self.equality()
+    self.struct_def()
   }
 
-  // fn struct_def(&mut self) -> Result<Expression, ParserErr> {
-  //   let pos = self.get_pos();
+  fn struct_def(&mut self) -> Result<Expression, ParserErr> {
+    if let Some((_, pos)) = self.do_match(&[Struct]) {
+      if let None = self.do_match(&[BraceOpen]) {
+        return Err(ParserErr::ExpectedBraceOpen(pos));
+      }
 
-  //   if let Some(op) = self.do_match(&[Struct]) {
-      
-  //   }
-  // }
+      let mut decls = vec![];
+      while let None = self.do_match(&[BraceClose]) {
+        decls.push(Box::new(self.declaration()?));
+      }
+
+      return Ok(Expression::StructExpr(decls, pos));
+    }
+
+    self.equality()
+  }
 
   fn equality(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.comparison()?;
@@ -359,11 +344,34 @@ impl<'a> Grammar {
   }
 
   fn dot(&mut self) -> Result<Expression, ParserErr> {
-    let mut expr = self.primary()?;
+    let mut expr = self.func_call_expr()?;
 
     while let Some(op) = self.do_match(&[Dot]) {
       let right = self.primary()?;
       expr = Expression::Binary(Box::new(expr), op, Box::new(right));
+    }
+
+    Ok(expr)
+  }
+
+  fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
+    let mut expr = self.primary()?;
+
+    while let Some((_, call_pos)) = self.do_match(&[Token::ParOpen]) {
+      let mut args: Vec<Box<Expression>> = Vec::new();
+
+      while let None = self.do_match(&[Token::ParClose]) {
+        args.push(Box::new(self.expression()?));
+
+        if let None = self.do_match(&[Token::Comma]) {
+          if let None = self.do_match(&[Token::ParClose]) {
+            return Err(ParserErr::GrammarError(01234));
+          } else {
+            break;
+          }
+        }
+      }
+      expr = Expression::FunctionCallExpr(Box::new(expr), args, call_pos);
     }
 
     Ok(expr)
@@ -385,6 +393,7 @@ impl<'a> Grammar {
       if let Some(_) = self.do_match(&[Token::ParClose]) {
         return expr;
       } else {
+        println!("{:?}", expr);
         return Err(ParserErr::MismatchedParenthesis(pos));
       }
     }

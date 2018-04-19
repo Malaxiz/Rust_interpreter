@@ -32,6 +32,15 @@ fn literal_to_string(literal: &Literal, quotes: bool) -> String {
   }
 }
 
+fn non_literal_to_string(scope: NativeScope, val: *const Value, quotes: bool) -> Result<String, VMExecError> {
+  unsafe {
+      Ok(match &*val {
+      &Value::Instance(scope) => format!("<instance at {:?}>", scope),
+      _ => format!("unknown value")
+    })
+  }
+}
+
 pub fn value_to_string(scope: NativeScope, val: *const Value, quotes: bool) -> Result<String, VMExecError> {
   unsafe {
     Ok(match *val {
@@ -39,14 +48,14 @@ pub fn value_to_string(scope: NativeScope, val: *const Value, quotes: bool) -> R
       Value::Variable(ref identifier, pos) => match (*scope).get_var(identifier) {
         Some(val) => match *val {
           Value::Literal(ref val) => literal_to_string(val, quotes),
-          _ => format!("unknown value (1)")
+          _ => non_literal_to_string(scope, val, quotes)?
         },
         None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
           Some(pos) => pos,
           None => 0
         }))
       },
-      _ => format!("unknown value (2)")
+      _ => non_literal_to_string(scope, val, quotes)?
     })
   }
 }

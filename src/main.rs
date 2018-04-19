@@ -10,9 +10,7 @@ use std::io::prelude::*;
 use lang::vm;
 use vm::{VM, BuildOptions};
 
-fn shell(mut vm: &mut VM) {
-  let options = BuildOptions::DEBUG | BuildOptions::CODE;
-    
+fn shell(mut vm: &mut VM, options: BuildOptions) {
   loop {
     print!("> ");
     io::stdout().flush().unwrap();
@@ -136,8 +134,13 @@ fn main() {
           }
         }
 
+        let is_debug = vm.vm_exec.is_debug;
         if shell_after {
-          shell(&mut vm);
+          shell(&mut vm, if is_debug {
+            BuildOptions::DEBUG | BuildOptions::CODE
+          } else {
+            BuildOptions::NONE
+          });
         }
 
         std::process::exit(0);
@@ -146,6 +149,6 @@ fn main() {
     }
   } else {
     println!("Welcome to the shell!");
-    shell(&mut vm);
+    shell(&mut vm, BuildOptions::DEBUG | BuildOptions::CODE);
   }
 }

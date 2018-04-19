@@ -3,13 +3,11 @@
 
 pub mod lexer;
 pub mod parser;
-pub mod interpreter;
 pub mod vm;
 
 use std::fs::File;
 use std::io::prelude::*;
 
-use interpreter::Interpreter;
 use vm::{VM, BuildOptions, Program, Instructions};
 use lexer::Literal;
 
@@ -19,7 +17,7 @@ mod handle_err;
 pub enum LangErr {
   LexErr(lexer::LexErr),
   ParserErr(parser::ParserErr),
-  InterpreterErr(interpreter::InterpreterErr),
+  // InterpreterErr(interpreter::InterpreterErr),
   VMExecErr(vm::VMExecError),
   VMBuildErr(vm::VMBuildError)
 }

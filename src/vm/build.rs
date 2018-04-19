@@ -82,6 +82,8 @@ impl VMBuild {
           &(Token::Equals, _) => ASSIGN,
           &(Token::Let, _) => LET,
           &(Token::Slash, _) => DIVIDE,
+
+          &(Token::Dot, _) => DOT,
           
           &(Token::Lt, _) => LT,
           &(Token::Gt, _) => GT,
@@ -319,6 +321,36 @@ impl VMBuild {
         v
         // println!("{:?}", get_program(v));
         // Ok(vec![u(PUSH_NIL)])
+      },
+      &Expression::StructExpr(ref body, pos) => {
+        let mut body_v = Vec::new();
+        for i in body {
+          body_v.append(&mut self.build_decl(i)?);
+        }
+
+        let mut debug_info = Vec::new();
+        if self.is_debug {
+          debug_info.push(u(I32));
+          debug_info.append(&mut self.get_debug_binary(pos));
+        }
+
+        let mut v = vec![u(PUSH_STRUCT)];
+        v.append(&mut debug_info);
+
+        v.push(u(I32));
+        v.append(&mut get_int_binary(1 + 1 + 4));
+
+        v.push(u(JUMP));
+        v.push(u(I32));
+        v.append(&mut get_int_binary(1 + body_v.len() as i32 + 1 + 1));
+
+        v.push(u(SCOPE_NEW));
+        v.append(&mut body_v);
+        v.push(u(SCOPE_PUSH));
+        v.push(u(JUMPSTACKABS));
+
+        v
+        // vec![u(PUSH_NIL)]
       },
       &Expression::FunctionExpr(ref parameters, ref body, pos) => {
         let mut body_v = Vec::new();

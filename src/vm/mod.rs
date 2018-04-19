@@ -61,7 +61,8 @@ enum_from_primitive! {
     PUSH_VALUE, // [], pops a value, checks if variable, then pushes the value of the variable 
     PUSH_STACK_VAR, // [I32, debug: 4b] //  pops a string from the stack and looks up variable
     PUSH_FUNC, // [I32, debug: 4b, I32, pos: 4b, I32, parameter_len: 4b, STRING, par1: str, STRING, par2: str, ..., body_len: 4b, body]
-    CALL_FUNC, // [I32, debug: 4b, I32, argument_len]
+    CALL_FUNC, // [I32, debug: 4b, I32, argument_len],
+    PUSH_STRUCT, // [I32, debug: 4b, I32, pos: 4b]
     PUSH_NIL, // []
 
     POP, // pops top value of stack
@@ -85,6 +86,7 @@ enum_from_primitive! {
     SUB,
     MULTIPLY,
     DIVIDE,
+    DOT,
 
     // [I32, debug: 4b]
     LT,

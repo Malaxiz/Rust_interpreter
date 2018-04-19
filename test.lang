@@ -1,61 +1,61 @@
-let a = 5+5 +
-2+2*5-1e2*1.05 +
-("hello there" * 5 + 2) + 2;
+// let a = 5+5 +
+// 2+2*5-1e2*1.05 +
+// ("hello there" * 5 + 2) + 2;
 
-let c = a + 5;
-let d = print(c);
+// let c = a + 5;
+// let d = print(c);
 
-print("Hello: \"" + d + "\"");
+// print("Hello: \"" + d + "\"");
 
-let a = let b = 4.9999;
+// let a = let b = 4.9999;
 
-let asdf = if a <= 5 {
-  print("a is >= 5")
-} else {
-  print("uwot")
-};
-
-print(asdf);
-
-let i = -1;
-c = while (i = i + 1) < 10 {
-  print("i is: " + i);
-  "a" + i
-};
-
-c;
-
-print("Starting");
-i = -1;
-while (i = i + 1) < 1e5 {
-
-};
-print("Finished");
-
-let myFunc = fn(bas) {
-  print("hello" + bas);
-};
-
-print(myFunc);
-
-myFunc(5);
-
-let raise = fn(a, b) {
-  a = 5;
-  b = 5;
-};
-
-a = 1;
-raise(2, 2);
-print("a = " + a);
-
-// let Structure = struct {
-//   let __init = fn(val) {
-//     self.val = val;
-//   };
+// let asdf = if a <= 5 {
+//   print("a is >= 5")
+// } else {
+//   print("uwot")
 // };
 
-// let s = Structure(5);
+// print(asdf);
+
+// let i = -1;
+// c = while (i = i + 1) < 10 {
+//   print("i is: " + i);
+//   "a" + i
+// };
+
+// c;
+
+// print("Starting");
+// i = -1;
+// while (i = i + 1) < 1e5 {
+
+// };
+// print("Finished");
+
+// let myFunc = fn(bas) {
+//   print("hello" + bas);
+// };
+
+// print(myFunc);
+
+// myFunc(5);
+
+// let raise = fn(a, b) {
+//   a = 5;
+//   b = 5;
+// };
+
+// a = 1;
+// raise(a, a);
+// print("a should be 1 = ", a);
+
+let Structure = struct {
+  let a = 5;
+};
+
+let s = Structure(5);
+let s = Structure(5);
+let s = Structure(5);
 
 //1 // success
 
