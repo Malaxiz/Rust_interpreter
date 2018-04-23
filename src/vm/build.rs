@@ -324,6 +324,7 @@ impl VMBuild {
       },
       &Expression::StructExpr(ref body, pos) => {
         let mut body_v = Vec::new();
+
         for i in body {
           body_v.append(&mut self.build_decl(i)?);
         }
@@ -334,6 +335,20 @@ impl VMBuild {
           debug_info.append(&mut self.get_debug_binary(pos));
         }
 
+        let last_is_stmt: bool = body_v.len() <= 0 || match *(*body)[body.len() - 1] {
+          Declaration::Statement(ref stmt, _) => match **stmt {
+            Statement::ExpressionStmt(_, is_stmt, _) => is_stmt,
+            _ => false // should not happen
+          },
+          _ => false // should not happen
+        };
+
+        if !last_is_stmt {
+          body_v.push(u(POP));
+        }
+
+        let mut init_func = String::from("__init__").into_bytes();
+
         let mut v = vec![u(PUSH_STRUCT)];
         v.append(&mut debug_info);
 
@@ -342,15 +357,60 @@ impl VMBuild {
 
         v.push(u(JUMP));
         v.push(u(I32));
-        v.append(&mut get_int_binary(1 + body_v.len() as i32 + 1 + 1));
+        v.append(&mut get_int_binary(1 + body_v.len() as i32 + 1 + init_func.len() as i32 + 1 + 1 + 4 + 1 + 1 + 4 + 1 + 1 + 1));
 
         v.push(u(SCOPE_NEW));
         v.append(&mut body_v);
+
+        v.push(u(PUSH_VAR));
+        v.append(&mut init_func);
+        v.push(u(NULL));
+        v.push(u(I32));
+        v.append(&mut get_int_binary(-1));
+
+        v.push(u(CALL_FUNC_STACK_ARGS));
+        v.push(u(I32));
+        v.append(&mut get_int_binary(-1));
+
+        v.push(u(POP));
+
         v.push(u(SCOPE_PUSH));
         v.push(u(JUMPSTACKABS));
 
         v
         // vec![u(PUSH_NIL)]
+      },
+      &Expression::NewExpr(ref expr, ref args, pos) => {
+        let mut debug_info = Vec::new();
+        if self.is_debug {
+          debug_info.push(u(I32));
+          debug_info.append(&mut self.get_debug_binary(pos));
+        }
+
+        let mut expr = self.build_binary(expr, pos)?;
+
+        let mut v = Vec::new();
+        for i in args {
+          v.append(&mut self.build_expr(i, pos)?);
+        }
+
+        v.push(u(PUSH_INT));
+        v.append(&mut get_int_binary(args.len() as i32));
+
+        v.append(&mut expr);
+
+        // v.push(u(PUSH_JUMP));
+        // v.append(&mut get_int_binary(0));
+
+        v.push(u(CALL_STRUCT));
+        v.append(&mut debug_info);
+
+        // v.push(u(CREATE_INSTANCE));
+        // v.append(&mut debug_info);
+        // v.push(u(I32));
+        // v.append(&mut get_int_binary(args.len() as i32));
+
+        v
       },
       &Expression::FunctionExpr(ref parameters, ref body, pos) => {
         let mut body_v = Vec::new();

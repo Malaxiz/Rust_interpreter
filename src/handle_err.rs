@@ -186,7 +186,7 @@ fn build_err(err: &VMBuildError, query: &str) {
     &VMBuildError::InvalidExpression(ref desc, ref pos) => {
       title = "VMBuildError: InvalidExpression";
       err_pos = *pos;
-      description = format!("invalid expression");
+      description = format!("invalid expression, {}", desc);
     },
     &VMBuildError::UnsupportedOperator(ref token, ref pos) => {
       title = "VMBuildError: UnsupportedOperator";

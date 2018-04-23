@@ -1,6 +1,7 @@
 use parser::ParserErr;
 
 use lexer;
+use lexer::lex;
 use lexer::Lexed;
 use lexer::Literal;
 use lexer::Token;
@@ -35,6 +36,9 @@ pub enum Expression {
 
   // body, pos
   StructExpr(Vec<Box<Declaration>>, i32),
+
+  // struct expression, arguments for __init__, pos
+  NewExpr(Box<Expression>, Vec<Box<Expression>>, i32),
 
   // parameters, body
   FunctionExpr(Vec<String>, Vec<Box<Declaration>>, i32),
@@ -268,7 +272,10 @@ impl<'a> Grammar {
         return Err(ParserErr::ExpectedBraceOpen(pos));
       }
 
-      let mut decls = vec![];
+      let lexed = lexer::lex("let __init__ = fn(){};").unwrap();
+      let mut this = Self::new(lexed);
+      let mut decls: Vec<Box<Declaration>> = this.program()?;
+
       while let None = self.do_match(&[BraceClose]) {
         decls.push(Box::new(self.declaration()?));
       }
@@ -340,22 +347,38 @@ impl<'a> Grammar {
       return Ok(Expression::Binary(Box::new(Expression::Primary(Primary::Literal(lexer::Literal::Num(0 as f64)), pos)), (operator, pos), Box::new(right)));
     }
 
-    Ok(self.dot()?)
+    Ok(self.new_expr()?)
   }
 
-  fn dot(&mut self) -> Result<Expression, ParserErr> {
-    let mut expr = self.func_call_expr()?;
-
-    while let Some(op) = self.do_match(&[Dot]) {
+  fn new_expr(&mut self) -> Result<Expression, ParserErr> {
+    if let Some((_, pos)) = self.do_match(&[New]) {
       let right = self.primary()?;
-      expr = Expression::Binary(Box::new(expr), op, Box::new(right));
+      let right_pos = self.get_pos();
+      if let Some((_, call_pos)) = self.do_match(&[Token::ParOpen]) {
+        let mut args: Vec<Box<Expression>> = Vec::new();
+
+        while let None = self.do_match(&[Token::ParClose]) {
+          args.push(Box::new(self.expression()?));
+
+          if let None = self.do_match(&[Token::Comma]) {
+            if let None = self.do_match(&[Token::ParClose]) {
+              return Err(ParserErr::GrammarError(01234));
+            } else {
+              break;
+            }
+          }
+        }
+        return Ok(Expression::NewExpr(Box::new(right), args, pos));
+      } else {
+        return Err(ParserErr::ExpectedParOpen(right_pos))
+      }
     }
 
-    Ok(expr)
+    Ok(self.func_call_expr()?)
   }
 
   fn func_call_expr(&mut self) -> Result<Expression, ParserErr> {
-    let mut expr = self.primary()?;
+    let mut expr = self.dot_expr()?;
 
     while let Some((_, call_pos)) = self.do_match(&[Token::ParOpen]) {
       let mut args: Vec<Box<Expression>> = Vec::new();
@@ -372,6 +395,17 @@ impl<'a> Grammar {
         }
       }
       expr = Expression::FunctionCallExpr(Box::new(expr), args, call_pos);
+    }
+
+    Ok(expr)
+  }
+
+  fn dot_expr(&mut self) -> Result<Expression, ParserErr> {
+    let mut expr = self.primary()?;
+
+    while let Some(op) = self.do_match(&[Dot]) {
+      let right = self.primary()?;
+      expr = Expression::Binary(Box::new(expr), op, Box::new(right));
     }
 
     Ok(expr)
@@ -403,6 +437,10 @@ impl<'a> Grammar {
       return Ok(Expression::Primary(Primary::Literal(Literal::Nil), pos));
     }
 
+    if let Some((_, pos)) = self.do_match(&[Token::EOF]) {
+      return Err(ParserErr::UnexpectedToken(pos, Token::EOF, vec![], false, false))
+    }
+
     println!("last effort: {:?}", self.lexed[self.current]);
 
     // last effort
@@ -412,5 +450,4 @@ impl<'a> Grammar {
     // println!("{:?}", self.lexed[self.current]);
     // Err(ParserErr::GrammarError(5))
   }
-
 }

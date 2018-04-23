@@ -21,6 +21,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
   let mut allowed_identifier = true;
   let mut allowed_operators: Vec<Token> = vec![
     Let,
+    New,
     Struct,
     ParOpen,
     LineBreak,
@@ -94,7 +95,7 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
             allowed_literal = true;
             allowed_operators = vec![
               ParOpen, Minus, Bang,
-              While, Let, Struct, If, Func
+              While, Let, New, Struct, If, Func
             ];
           },
           Plus | Minus | Asterix | Slash | Bang | DoubleAsterix => {
@@ -157,6 +158,12 @@ pub fn check(lexed: &Vec<Lexed>) -> Result<(), ParserErr> {
           },
           Let => {
             allowed_identifier = true;
+          },
+          New => {
+            allowed_identifier = true;
+            allowed_operators = vec![
+              ParOpen
+            ];
           },
           If => {
             allowed_identifier = true;

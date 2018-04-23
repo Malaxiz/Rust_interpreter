@@ -53,6 +53,7 @@ pub enum Token {
 
   // keywords
   Let,
+  New,
   Ref,
   DeRef,
   Struct,
@@ -104,6 +105,7 @@ pub fn get_tokens<'a>() -> HashMap<&'a str, Token> {
     "\t" => Tab,
 
     "let" => Let,
+    "new" => New,
     "&" => Ref,
     // "*" => DeRef,
     "struct" => Struct,

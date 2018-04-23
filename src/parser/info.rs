@@ -15,6 +15,7 @@ pub enum ParserErr {
   ExpectedSemiColon(i32),
   ExpectedBraceOpen(i32),
   ExpectedBraceClose(i32),
+  ExpectedParOpen(i32),
   ExpectedIdentifier(i32),
   ExpectedArrow(i32),
   MismatchedParenthesis(i32),

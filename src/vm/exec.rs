@@ -674,15 +674,21 @@ impl VMExec {
             self.root.pool.push(val);
             self.stack_push(val_point);
           },
-          CALL_FUNC => {
+          CALL_FUNC | CALL_FUNC_STACK_ARGS => {
             let self_point = self as *mut Self;
 
             let pos = self.get_debug_pos()?;
-            let args_len = self.get_int()? as usize;
 
             let func = self.stack_pop();
             let func = unsafe {
               (*self_point).cast_func(func, pos)?
+            };
+
+            let args_len = if *code == CALL_FUNC {
+              self.get_int()? as usize
+            } else {
+              let val = self.stack_pop();
+              self.cast_int(val, pos)? as usize
             };
 
             let mut args = Vec::with_capacity(args_len as usize);
@@ -732,13 +738,19 @@ impl VMExec {
                   },
                   None => self.stack_push(NIL)
                 }
-              },
-              FunctionType::Structure(to, _struct_pos) => {
-                let jump_stack = self.op_i;
-                self.jump_stack_push(jump_stack);
-                self.op_i = to;
               }
             }
+          },
+          CALL_STRUCT => {
+            let pos = self.get_debug_pos()?;
+
+            let s = self.stack_pop();
+            let s = self.cast_struct(s, pos)?;
+
+            let jump_stack = self.op_i;
+            self.jump_stack_push(jump_stack);
+
+            self.op_i = s.0;
           },
           PUSH_STRUCT => {
             let pos = self.get_debug_pos()?;
