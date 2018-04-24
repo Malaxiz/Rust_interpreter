@@ -49,14 +49,29 @@ a = 1;
 raise(a, a);
 print("a should be 1 = ", a);
 
+let Test = struct {
+  let this = 5;
+};
+
 let Structure = struct {
   let __init__ = fn(val) {
-    print(val);
+    print("__init__(): ", val);
   };
+
+  let adda = fn() {
+    print("self.a = ", self.a);
+  };
+
+  let aval = new Test();
+  let a = 2;
+
 };
 
 let s = new Structure(5);
-let s = new Structure(5);
+
+let s.b = 7;
+print(s.a + s.b);
+s.adda();
 
 //1 // success
 

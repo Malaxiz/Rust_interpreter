@@ -55,6 +55,16 @@ pub fn value_to_string(scope: NativeScope, val: *const Value, quotes: bool) -> R
           None => 0
         }))
       },
+      Value::Pointer(ref identifier, pos, scope) => match (*scope).get_var(identifier) {
+        Some(val) => match *val {
+          Value::Literal(ref val) => literal_to_string(val, quotes),
+          _ => non_literal_to_string(scope, val, quotes)?
+        },
+        None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+          Some(pos) => pos,
+          None => 0
+        }))
+      },
       _ => non_literal_to_string(scope, val, quotes)?
     })
   }

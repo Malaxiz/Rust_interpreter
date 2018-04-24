@@ -59,19 +59,22 @@ enum_from_primitive! {
     PUSH_STRING, // [content: str, NULL]
     PUSH_VAR, // [content: str, NULL, I32, debug: 4b], // looks up variable
     PUSH_VALUE, // [], pops a value, checks if variable, then pushes the value of the variable 
-    PUSH_STACK_VAR, // [I32, debug: 4b] //  pops a string from the stack and looks up variable
+    PUSH_VALUE_DIRECT, // [], pops a value, checks if variable directly, then pushes the value of the variable 
+    PUSH_POINTER, // [] // pops a value, pushes a pointer to the value in its scope
+    // PUSH_STACK_VAR, // [I32, debug: 4b] //  pops a string from the stack and looks up variable
     PUSH_FUNC, // [I32, debug: 4b, I32, pos: 4b, I32, parameter_len: 4b, STRING, par1: str, STRING, par2: str, ..., body_len: 4b, body]
     CALL_FUNC, // [I32, debug: 4b, I32, argument_len: 4b],
     CALL_FUNC_STACK_ARGS, // [I32, debug: 4b] // same as CALL_FUNC, but with the argument length on the stack
     PUSH_STRUCT, // [I32, debug: 4b, I32, pos: 4b],
     CALL_STRUCT,
-    CREATE_INSTANCE, // [I32, debug: 4b, I32, argument_len: 4b], peeks a scope on the stack and calls its __init__ function
+    GET_SCOPE, // [I32, debug: 4b]
     PUSH_NIL, // []
 
     POP, // pops top value of stack
 
     // [content: 0b]
     SCOPE_NEW,
+    SCOPE_NEW_FUNC, // peeks at a function and checks its scope
     SCOPE_END,
     SCOPE_FORWARD, // moves scope_stacki += 1
     SCOPE_BACK, // moves scope_stacki -= 1

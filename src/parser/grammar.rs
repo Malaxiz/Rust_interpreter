@@ -40,6 +40,9 @@ pub enum Expression {
   // struct expression, arguments for __init__, pos
   NewExpr(Box<Expression>, Vec<Box<Expression>>, i32),
 
+  // scope, lookup (identifier), pos
+  DotExpr(Box<Expression>, String, i32),
+
   // parameters, body
   FunctionExpr(Vec<String>, Vec<Box<Declaration>>, i32),
 
@@ -403,9 +406,17 @@ impl<'a> Grammar {
   fn dot_expr(&mut self) -> Result<Expression, ParserErr> {
     let mut expr = self.primary()?;
 
-    while let Some(op) = self.do_match(&[Dot]) {
+    while let Some((_, pos)) = self.do_match(&[Dot]) {
       let right = self.primary()?;
-      expr = Expression::Binary(Box::new(expr), op, Box::new(right));
+      let right = match right {
+        Expression::Primary(ref primary, _) => match primary {
+          &Primary::Identifier(ref identifier) => identifier,
+          _ => return Err(ParserErr::Temp(69))
+        }
+        _ => return Err(ParserErr::Temp(68))
+      };
+      // expr = Expression::Binary(Box::new(expr), op, Box::new(right));
+      expr = Expression::DotExpr(Box::new(expr), right.to_string(), pos);
     }
 
     Ok(expr)

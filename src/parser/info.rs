@@ -22,4 +22,5 @@ pub enum ParserErr {
 
   GrammarError(i32),
   UnknownErr,
+  Temp(i32)
 }

@@ -222,7 +222,10 @@ fn exec_err(err: &VMExecError, query: &str) {
     },
     &VMExecError::InvalidCast(ref literal, ref to, pos) => {
       title = "VMExecError: InvalidCast";
-      err_pos = pos;
+      err_pos = match pos {
+        Some(pos) => pos,
+        None => 0,
+      };
       description = format!("invalid cast: {:?} to {}", literal, to);
     },
     &VMExecError::ArgumentMismatch(ref func_pars, func_pars_len, args_len, func_abs_pos, pos) => {

@@ -25,7 +25,7 @@ pub enum VMExecError {
   // position in bytecode
   InvalidOperationContent(usize),
   InvalidIdentifier(String),
-  InvalidCast(Literal, String, i32),
+  InvalidCast(Value, String, Option<i32>),
 
   Temp(i32)
 }
@@ -47,6 +47,7 @@ pub enum Literal {
 #[derive(Clone, Debug)]
 pub enum Value {
   Variable(String, Option<i32>),
+  Pointer(String, Option<i32>, *mut Scope),
   Instance(*mut Scope),
   // Reference(*const Value),
   Literal(Literal),
@@ -388,10 +389,26 @@ impl VMExec {
               None => 0
             }))
           }
+        } else if let &Value::Pointer(ref identifier, pos, scope) = &*val1f {
+          val1 = match (&*scope).get_var(identifier) {
+            Some(val) => val,
+            None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+              Some(pos) => pos,
+              None => 0
+            }))
+          }
         }
       }
       if let &Value::Variable(ref identifier, pos) = &*val2f {
         val2 = match scope.get_var(identifier) {
+          Some(val) => val,
+          None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+            Some(pos) => pos,
+            None => 0
+          }))
+        }
+      } else if let &Value::Pointer(ref identifier, pos, scope) = &*val2f {
+        val2 = match (&*scope).get_var(identifier) {
           Some(val) => val,
           None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
             Some(pos) => pos,
@@ -488,6 +505,36 @@ impl VMExec {
             }
           }
         },
+        (&Value::Pointer(ref identifier, ref pos, scope), _) => {
+          match operation {
+            &ASSIGN => {
+              let mut scope = unsafe {
+                &mut *scope
+              };
+              if true { // variable strict mode
+                match scope.get_var(identifier) {
+                  Some(_) => {},
+                  None => return Err(VMExecError::VariableNotDefined(identifier.to_string(), match pos {
+                    &Some(pos) => pos,
+                    &None => 0
+                  }))
+                }
+              }
+              scope.set_var(identifier, val2);
+              Ok(val2)
+            },
+            &LET => {
+              let mut scope = unsafe {
+                &mut *scope
+              };
+              scope.set_var_directly(identifier, val2);
+              Ok(val2)
+            }
+            _ => {
+              Ok(NIL)
+            }
+          }
+        },
         _ => return Err(VMExecError::UnsupportedValueOperation((&*val1).clone(), (&*val2).clone(), operation.clone(), get_pos()))
       }
     }
@@ -566,10 +613,10 @@ impl VMExec {
         }
 
         {
-          // let cont = format!("{:#?}", code);
-          // let mut repeat: i32 = 14 - cont.len() as i32;
-          // repeat = if repeat < 0 {0} else {repeat};
-          // println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
+        //   let cont = format!("{:#?}", code);
+        //   let mut repeat: i32 = 14 - cont.len() as i32;
+        //   repeat = if repeat < 0 {0} else {repeat};
+        //   println!("code: {}{} | {:?}", cont, " ".repeat(repeat as usize), content);
           // self.print_stack();
         }
         
@@ -642,7 +689,16 @@ impl VMExec {
             self.root.pool.push(val);
             self.stack_push(val_point);
           },
-          PUSH_VALUE => {
+          PUSH_POINTER => {
+            let lookup = self.get_string()?;
+            let pos = self.get_debug_pos()?;
+
+            let val = Box::new(Value::Pointer(lookup.to_string(), pos, self.scope_stack_peek()?)); // temp
+            let val_point = &*val as *const Value;
+            self.root.pool.push(val);
+            self.stack_push(val_point);
+          },
+          PUSH_VALUE | PUSH_VALUE_DIRECT => {
             let value = self.stack_pop();
           
             match unsafe { &*value } {
@@ -651,11 +707,33 @@ impl VMExec {
                   &mut *self.scope_stack_peek()?
                 };
 
-                match scope.get_var(identifier) {
+                let val = if *code == PUSH_VALUE_DIRECT {
+                  scope.get_var_directly(identifier)
+                } else {
+                  scope.get_var(identifier)
+                };
+
+                match val {
                   Some(val) => self.stack_push(val),
                   None => self.stack_push(NIL)
                 }
               },
+              &Value::Pointer(ref identifier, _, scope) => {
+                let mut scope = unsafe {
+                  &mut *scope
+                };
+
+                let val = if *code == PUSH_VALUE_DIRECT {
+                  scope.get_var_directly(identifier)
+                } else {
+                  scope.get_var(identifier)
+                };
+
+                match val {
+                  Some(val) => self.stack_push(val),
+                  None => self.stack_push(NIL)
+                }
+              }
               _ => self.stack_push(value)
             }
           },
@@ -679,9 +757,9 @@ impl VMExec {
 
             let pos = self.get_debug_pos()?;
 
-            let func = self.stack_pop();
+            let func_val = self.stack_pop();
             let func = unsafe {
-              (*self_point).cast_func(func, pos)?
+              (*self_point).cast_func(func_val, pos)?
             };
 
             let args_len = if *code == CALL_FUNC {
@@ -764,6 +842,19 @@ impl VMExec {
 
             // self.stack_push(NIL);
           },
+          GET_SCOPE => {
+            let pos = self.get_debug_pos()?;
+
+            let scope_val = self.stack_pop();
+            let scope = self.cast_instance(scope_val, pos)?;
+            self.scope_stack_push(scope, pos)?;
+
+            let scope = unsafe {
+              &mut *scope
+            };
+
+            scope.set_var_directly("self", scope_val);
+          },
           PUSH_NIL => {
             self.stack_push(NIL);
           },
@@ -776,11 +867,30 @@ impl VMExec {
             let res = self.literal_operation(first, second, code, pos)?;
             self.stack_push(res);
           },
-          SCOPE_NEW => {
-            let mut scope = Box::new(Scope::new(&mut self.root as *mut Root, Some(self.scope_stack_peek()?)));
+          // DOT => {
+          //   let pos = self.get_debug_pos()?;
+
+          //   let child = self.stack_pop();
+          //   let parent = self.stack_pop();
+
+
+          // },
+          SCOPE_NEW | SCOPE_NEW_FUNC => {
+            let parent = match unsafe { &*self.stack_peek() } {
+              &Value::Pointer(_, _, scope) => scope,
+              _ => self.scope_stack_peek()?
+            };
+
+            let mut scope = Box::new(Scope::new(&mut self.root as *mut Root, Some(parent)));
             let mut scope_point = &mut *scope as *mut Scope;
             self.root.scopes.push(scope);
             self.scope_stack_push(scope_point, None)?;
+
+
+            // let mut scope = Box::new(Scope::new(&mut self.root as *mut Root, Some(self.scope_stack_peek()?)));
+            // let mut scope_point = &mut *scope as *mut Scope;
+            // self.root.scopes.push(scope);
+            // self.scope_stack_push(scope_point, None)?;
           },
           SCOPE_END => {
             self.scope_stack_pop()?;

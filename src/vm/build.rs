@@ -82,8 +82,6 @@ impl VMBuild {
           &(Token::Equals, _) => ASSIGN,
           &(Token::Let, _) => LET,
           &(Token::Slash, _) => DIVIDE,
-
-          &(Token::Dot, _) => DOT,
           
           &(Token::Lt, _) => LT,
           &(Token::Gt, _) => GT,
@@ -392,6 +390,7 @@ impl VMBuild {
         let mut v = Vec::new();
         for i in args {
           v.append(&mut self.build_expr(i, pos)?);
+          // v.push(u(POP)); // temp
         }
 
         v.push(u(PUSH_INT));
@@ -399,16 +398,31 @@ impl VMBuild {
 
         v.append(&mut expr);
 
-        // v.push(u(PUSH_JUMP));
-        // v.append(&mut get_int_binary(0));
-
         v.push(u(CALL_STRUCT));
         v.append(&mut debug_info);
 
-        // v.push(u(CREATE_INSTANCE));
-        // v.append(&mut debug_info);
-        // v.push(u(I32));
-        // v.append(&mut get_int_binary(args.len() as i32));
+        v
+      },
+      &Expression::DotExpr(ref parent, ref lookup, pos) => {
+        let mut v = vec![];
+        v.append(&mut self.build_binary(parent, pos)?);
+
+        let mut debug_info = Vec::new();
+        if self.is_debug {
+          debug_info.push(u(I32));
+          debug_info.append(&mut self.get_debug_binary(pos));
+        }
+
+        v.push(u(GET_SCOPE));
+        v.append(&mut debug_info.clone());
+
+        // v.push(u(PUSH_VALUE_DIRECT));
+        v.push(u(PUSH_POINTER));
+        v.push(u(STRING));
+        v.append(&mut get_string_binary(lookup));
+        v.append(&mut debug_info);
+
+        v.push(u(SCOPE_BACK));
 
         v
       },
@@ -478,7 +492,7 @@ impl VMBuild {
 
         v.append(&mut self.build_expr(expr, pos)?);
 
-        v.push(u(SCOPE_NEW));
+        v.push(u(SCOPE_NEW_FUNC)); // call_func handles it
 
         v.push(u(CALL_FUNC));
         v.append(&mut debug_info);
